@@ -3,6 +3,99 @@
 
 ---
 
+## 🏗️ زیرساخت پیاده‌سازی‌شده (Implemented Infrastructure)
+
+بر اساس معماری فنی بخش ۵ این سند، زیرساخت کامل پروژه به‌صورت مجموعه‌ای از میکروسرویس‌های FastAPI به همراه تمام سرویس‌های داده مورد نیاز (InfluxDB، PostgreSQL، Redis، Kafka، MLflow) و از طریق Docker Compose پیاده‌سازی شده است.
+
+### نقشه معماری
+
+```
+                         ┌──────────────────┐
+                         │   API Gateway     │  (JWT + 2FA - NFR-SEC-01)
+                         │  (FastAPI, :8000)  │
+                         └─────────┬─────────┘
+                                   │
+        ┌───────────────┬─────────┼─────────────┬───────────────┐
+        │               │                       │               │
+┌───────▼───────┐┌───────▼────────┐   ┌──────────▼───────┐┌──────▼──────┐
+│Data Ingestion ││ Preprocessing  │   │    Prediction     ││  Alerting   │
+│ OPC-UA/Modbus ││ Outlier/NaN/   │   │ LSTM/XGBoost +     ││ Telegram/   │
+│ :8001         ││ Normalize:8002 │   │ Recommender :8003  ││ Email :8004 │
+└──────┬────────┘└───────┬────────┘   └─────────┬─────────┘└──────┬──────┘
+       │                 │                       │                │
+       └────────────┬────┴───────────┬───────────┘                │
+                     ▼                ▼                            ▼
+              ┌────────────┐  ┌───────────────┐             ┌────────────┐
+              │   Kafka    │  │   InfluxDB    │             │ PostgreSQL │
+              │ (Streaming)│  │ (Time-Series) │             │(Transaction│
+              └────────────┘  └───────────────┘             └────────────┘
+                     │                                              │
+              ┌────────────┐                               ┌────────────┐
+              │   Redis    │                               │   MLflow   │
+              │  (Cache)   │                               │  (MLOps)   │
+              └────────────┘                               └────────────┘
+```
+
+جریان داده: `Data Ingestion` هر ثانیه یک رکورد سنسور (شبیه‌سازی‌شده یا از OPC-UA/Modbus) به Kafka (`raw-sensor-data`) و InfluxDB خام ارسال می‌کند → `Preprocessing` مصرف کرده، پرت‌ها را اصلاح، مقادیر گم‌شده را درون‌یابی و نرمال‌سازی می‌کند و در `processed-sensor-data` منتشر می‌کند → `Prediction` دمای ۶۰ ثانیه آینده را پیش‌بینی، در صورت انحراف بحرانی هشدار به `process-alerts` می‌فرستد و توصیه دبی خوراک بهینه را در PostgreSQL ثبت می‌کند → `Alerting` هشدارها را از طریق تلگرام/ایمیل ارسال، در PostgreSQL لاگ و برای نمایش در اتاق کنترل در Redis کش می‌کند.
+
+### ساختار پوشه‌ها
+
+| مسیر | توضیح |
+| :--- | :--- |
+| `shared/` | مدل‌های Pydantic، تنظیمات مشترک (`.env`)، ابزارهای Kafka |
+| `services/api-gateway/` | دروازه واحد API، احراز هویت دو مرحله‌ای (NFR-SEC-01) |
+| `services/data-ingestion/` | اتصال OPC-UA/Modbus، بافر محلی هنگام قطعی (FR-DATA-01..03) |
+| `services/preprocessing/` | حذف پرت، درون‌یابی، نرمال‌سازی (FR-PRE-01..03) |
+| `services/prediction/` | پیش‌بینی دما با XGBoost/LSTM + توصیه‌گر تکاملی (FR-ML-01..03) |
+| `services/alerting/` | ارسال هشدار تلگرام/ایمیل و ثبت لاگ (FR-ALERT-01..02) |
+| `infra/postgres/init.sql` | Schema اولیه PostgreSQL (اپراتورها، سنسورها، هشدارها، گزارش شیفت) |
+| `infra/mlflow/` | Dockerfile سرور MLflow |
+| `data/generate_synthetic_data.py` | تولید ۱۰,۰۰۰ رکورد داده سنتتیک برای هر متغیر |
+| `docker-compose.yml` | تعریف کامل زیرساخت (۵ سرویس داده + ۵ میکروسرویس) |
+
+### راه‌اندازی سریع (Quick Start)
+
+```bash
+# ۱. کپی فایل نمونه متغیرهای محیطی و ویرایش مقادیر حساس
+cp .env.example .env
+
+# ۲. بالا آوردن کامل زیرساخت
+docker compose up --build -d
+
+# ۳. بررسی سلامت سرویس‌ها
+curl http://localhost:8000/health/services
+```
+
+سرویس `data-ingestion` به‌صورت پیش‌فرض با یک شبیه‌ساز داخلی (`DATA_SOURCE_MODE=simulator`) کار می‌کند تا بدون نیاز به سخت‌افزار واقعی OPC-UA/Modbus، کل خط لوله (Ingestion → Kafka → Preprocessing → Prediction → Alerting) قابل تست باشد.
+
+برای ورود به داشبورد (اپراتور دمو، رمز پیش‌فرض `ChangeMe123!`):
+
+```bash
+curl -X POST http://localhost:8000/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"employee_code": "demo-admin", "password": "ChangeMe123!"}'
+# پاسخ شامل pending_token است؛ کد OTP را با ابزاری مانند Google Authenticator
+# روی رمز Base32 موجود در جدول operators (ستون otp_secret) تولید کنید.
+curl -X POST http://localhost:8000/auth/verify-otp \
+  -H "Content-Type: application/json" \
+  -d '{"pending_token": "<pending_token>", "otp_code": "<کد ۶ رقمی>"}'
+```
+
+⚠️ رمز عبور و راز OTP اپراتور دمو صرفاً برای محیط توسعه است؛ پیش از استقرار عملیاتی حذف/تغییر داده شود.
+
+### تولید داده سنتتیک برای تست/آموزش مدل
+
+```bash
+pip install -r data/requirements.txt
+python data/generate_synthetic_data.py --num-records 10000
+```
+
+### متغیرهای محیطی کلیدی
+
+فایل `.env.example` تمام متغیرهای مورد نیاز (اتصال InfluxDB/PostgreSQL/Redis/Kafka/MLflow، آستانه‌های هشدار، تنظیمات تلگرام/SMTP و کلید JWT) را با توضیح فارسی شامل می‌شود.
+
+---
+
 ## 📄 مستند SRS – سیستم بهینه‌سازی فرایند تولید (POS)
 
 ### ۱. مقدمه (Introduction)
@@ -60,6 +153,8 @@
 ---
 
 ## 🧪 کد تولید داده‌های سنتتیک (Synthetic Data Generator)
+
+> 📌 نسخه اجراشدنی و به‌روز این کد در فایل [`data/generate_synthetic_data.py`](data/generate_synthetic_data.py) قرار دارد (قابل اجرا با `python data/generate_synthetic_data.py`). کد زیر صرفاً برای مرجع مستندسازی نگه‌داشته شده است.
 
 کد زیر در پایتون نوشته شده و **۱۰,۰۰۰ رکورد** برای هر یک از **۷ متغیر کلیدی** با نرخ **۱ رکورد در ثانیه** تولید می‌کند. داده‌ها شامل الگوهای سینوسی، روندهای فصلی و نویز گاوسی برای شبیه‌سازی دنیای واقعی هستند و در نهایت در یک فایل CSV ذخیره می‌شوند.
 

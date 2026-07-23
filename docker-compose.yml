@@ -1,0 +1,215 @@
+# ==========================================================================
+# Khalij POS - زیرساخت اصلی (Data Lake, Cache, Message Bus, MLOps, Services)
+# مطابق بخش ۵ سند SRS: PostgreSQL + InfluxDB + Redis + Kafka + MLflow
+# ==========================================================================
+
+networks:
+  khalij-net:
+    driver: bridge
+
+volumes:
+  postgres-data:
+  influxdb-data:
+  redis-data:
+  kafka-data:
+  mlflow-artifacts:
+
+services:
+  # -------------------------------------------------------------------
+  # پایگاه داده تراکنشی: کاربران، اپراتورها، هشدارها، گزارش‌های شیفت
+  # -------------------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    container_name: khalij-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks: [khalij-net]
+
+  # -------------------------------------------------------------------
+  # پایگاه داده سری زمانی: دما، فشار، دبی، سطح، ترکیب گاز، RPM
+  # -------------------------------------------------------------------
+  influxdb:
+    image: influxdb:2.7-alpine
+    container_name: khalij-influxdb
+    restart: unless-stopped
+    environment:
+      DOCKER_INFLUXDB_INIT_MODE: setup
+      DOCKER_INFLUXDB_INIT_USERNAME: ${INFLUXDB_ADMIN_USER}
+      DOCKER_INFLUXDB_INIT_PASSWORD: ${INFLUXDB_ADMIN_PASSWORD}
+      DOCKER_INFLUXDB_INIT_ORG: ${INFLUXDB_ORG}
+      DOCKER_INFLUXDB_INIT_BUCKET: ${INFLUXDB_BUCKET}
+      DOCKER_INFLUXDB_INIT_RETENTION: ${INFLUXDB_RETENTION:-1825d}
+      DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: ${INFLUXDB_TOKEN}
+    ports:
+      - "${INFLUXDB_PORT:-8086}:8086"
+    volumes:
+      - influxdb-data:/var/lib/influxdb2
+    healthcheck:
+      test: ["CMD", "influx", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks: [khalij-net]
+
+  # -------------------------------------------------------------------
+  # کش برای سرو سریع آخرین مقادیر سنسورها و نتایج پیش‌بینی
+  # -------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: khalij-redis
+    restart: unless-stopped
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD}"]
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks: [khalij-net]
+
+  # -------------------------------------------------------------------
+  # استریمینگ داده سنسورها (KRaft mode - بدون نیاز به Zookeeper)
+  # -------------------------------------------------------------------
+  kafka:
+    image: apache/kafka:3.7.0
+    container_name: khalij-kafka
+    restart: unless-stopped
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093,PLAINTEXT_HOST://0.0.0.0:29092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    ports:
+      - "29092:29092"
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    networks: [khalij-net]
+
+  # -------------------------------------------------------------------
+  # MLOps: ثبت، نسخه‌بندی و سرو مدل‌های LSTM/XGBoost
+  # -------------------------------------------------------------------
+  mlflow:
+    build:
+      context: ./infra/mlflow
+    container_name: khalij-mlflow
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      MLFLOW_BACKEND_STORE_URI: ${MLFLOW_BACKEND_STORE_URI}
+      MLFLOW_ARTIFACT_ROOT: ${MLFLOW_ARTIFACT_ROOT}
+    ports:
+      - "5000:5000"
+    volumes:
+      - mlflow-artifacts:/mlartifacts
+    networks: [khalij-net]
+
+  # -------------------------------------------------------------------
+  # میکروسرویس‌های اپلیکیشن (FastAPI)
+  # -------------------------------------------------------------------
+  data-ingestion:
+    build:
+      context: .
+      dockerfile: services/data-ingestion/Dockerfile
+    container_name: khalij-data-ingestion
+    restart: unless-stopped
+    env_file: .env
+    depends_on:
+      kafka:
+        condition: service_started
+      influxdb:
+        condition: service_healthy
+    ports:
+      - "${DATA_INGESTION_PORT:-8001}:8001"
+    networks: [khalij-net]
+
+  preprocessing:
+    build:
+      context: .
+      dockerfile: services/preprocessing/Dockerfile
+    container_name: khalij-preprocessing
+    restart: unless-stopped
+    env_file: .env
+    depends_on:
+      kafka:
+        condition: service_started
+      influxdb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "${PREPROCESSING_PORT:-8002}:8002"
+    networks: [khalij-net]
+
+  prediction:
+    build:
+      context: .
+      dockerfile: services/prediction/Dockerfile
+    container_name: khalij-prediction
+    restart: unless-stopped
+    env_file: .env
+    depends_on:
+      kafka:
+        condition: service_started
+      mlflow:
+        condition: service_started
+      redis:
+        condition: service_healthy
+    ports:
+      - "${PREDICTION_PORT:-8003}:8003"
+    networks: [khalij-net]
+
+  alerting:
+    build:
+      context: .
+      dockerfile: services/alerting/Dockerfile
+    container_name: khalij-alerting
+    restart: unless-stopped
+    env_file: .env
+    depends_on:
+      kafka:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+    ports:
+      - "${ALERTING_PORT:-8004}:8004"
+    networks: [khalij-net]
+
+  api-gateway:
+    build:
+      context: .
+      dockerfile: services/api-gateway/Dockerfile
+    container_name: khalij-api-gateway
+    restart: unless-stopped
+    env_file: .env
+    depends_on:
+      - data-ingestion
+      - preprocessing
+      - prediction
+      - alerting
+    ports:
+      - "${API_GATEWAY_PORT:-8000}:8000"
+    networks: [khalij-net]

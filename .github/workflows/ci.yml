@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  lint-and-syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install lint tools
+        run: pip install ruff==0.5.0
+
+      - name: Ruff lint (shared + services)
+        run: ruff check shared services data
+
+      - name: Byte-compile syntax check
+        run: |
+          python -m py_compile $(git ls-files '*.py')
+
+  validate-compose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create dummy .env for validation
+        run: cp .env.example .env
+
+      - name: Validate docker-compose config
+        run: docker compose config -q
+
+  build-images:
+    runs-on: ubuntu-latest
+    needs: [lint-and-syntax, validate-compose]
+    strategy:
+      matrix:
+        service: [api-gateway, data-ingestion, preprocessing, prediction, alerting]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build ${{ matrix.service }} image
+        run: docker build -f services/${{ matrix.service }}/Dockerfile -t khalij-${{ matrix.service }}:ci .
