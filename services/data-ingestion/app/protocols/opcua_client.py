@@ -9,6 +9,7 @@ import logging
 from typing import AsyncIterator
 
 from asyncua import Client, ua
+from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +23,14 @@ class OpcUaClient:
         self.sample_rate_s = sample_rate_s
         self._client: Client | None = None
 
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=1, max=10),
+        retry=retry_if_exception_type((OSError, ConnectionError, TimeoutError, ua.UaError)),
+        reraise=True,
+    )
     async def connect(self) -> None:
+        """اتصال به سرور OPC-UA با Retry Policy نمایی (Exponential Backoff)."""
         self._client = Client(url=self.endpoint_url)
         await self._client.connect()
         logger.info("اتصال OPC-UA به %s برقرار شد.", self.endpoint_url)

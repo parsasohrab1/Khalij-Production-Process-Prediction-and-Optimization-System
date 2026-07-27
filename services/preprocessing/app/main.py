@@ -1,7 +1,7 @@
-"""سرویس پیش‌پردازش (Preprocessing) - FR-PRE-01, FR-PRE-02, FR-PRE-03.
+"""سرویس پیش‌پردازش (Preprocessing) - FR-PRE-01..03 + فاز ۲ (Schema/DLQ/Quality).
 
-مصرف داده خام از Kafka، حذف پرت، درون‌یابی مقادیر گم‌شده، نرمال‌سازی و
-انتشار مجدد برای سرویس پیش‌بینی، همراه با کش آخرین مقدار در Redis برای سرو سریع.
+مصرف داده خام از Kafka، اعتبارسنجی schema، بررسی کیفیت، حذف پرت، درون‌یابی،
+نرمال‌سازی و انتشار مجدد. پیام‌های نامعتبر به Dead Letter Queue ارسال می‌شوند.
 """
 from __future__ import annotations
 
@@ -17,8 +17,15 @@ from fastapi import FastAPI
 from influxdb_client import InfluxDBClient, Point, WritePrecision
 from influxdb_client.client.write_api import SYNCHRONOUS
 
+from shared.data_quality import validate_record
+from shared.dlq import DeadLetterPublisher
+from shared.health import install_health_probes
 from shared.logging_config import configure_logging
+from shared.metrics import install_prometheus_metrics
+from shared.schema_registry import SchemaName, stamp_schema_metadata, try_validate
+from shared.security import install_internal_api_key_middleware
 from shared.settings import get_settings
+from shared.tracing import setup_tracing
 
 from .interpolation import interpolate_last_value, is_missing
 from .normalization import SENSOR_RANGES, normalize_reading
@@ -28,11 +35,23 @@ settings = get_settings()
 configure_logging("preprocessing", settings.log_level)
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Khalij POS - Preprocessing Service", version="1.0.0")
+app = FastAPI(title="Khalij POS - Preprocessing Service", version="8.0.0")
+install_internal_api_key_middleware(app)
+install_prometheus_metrics(app, service_name="preprocessing")
+setup_tracing("preprocessing", app)
+install_health_probes(app, service_name="preprocessing", ready_check=lambda: True)
 
-_HISTORY_WINDOW = 60  # آخرین ۶۰ رکورد برای هر فیلد به‌عنوان تاریخچه محلی
+_HISTORY_WINDOW = 60
 _history: dict[str, deque] = defaultdict(lambda: deque(maxlen=_HISTORY_WINDOW))
-_stats = {"processed": 0, "outliers_corrected": 0, "interpolated": 0}
+_stats = {
+    "processed": 0,
+    "outliers_corrected": 0,
+    "interpolated": 0,
+    "schema_rejected": 0,
+    "quality_rejected": 0,
+    "dlq_published": 0,
+    "quality_warnings": 0,
+}
 
 
 def _process_reading(raw: dict) -> dict:
@@ -42,8 +61,7 @@ def _process_reading(raw: dict) -> dict:
 
     for field in SENSOR_RANGES:
         value = raw.get(field)
-        history_key = field
-        history = list(_history[history_key])
+        history = list(_history[field])
 
         if is_missing(value):
             value = interpolate_last_value(history, fallback=history[-1] if history else 0.0)
@@ -54,7 +72,7 @@ def _process_reading(raw: dict) -> dict:
             processed["is_outlier_corrected"] = True
             _stats["outliers_corrected"] += 1
 
-        _history[history_key].append(value)
+        _history[field].append(value)
         processed[field] = value
 
     processed["normalized"] = normalize_reading(processed)
@@ -73,6 +91,11 @@ class PreprocessingWorker:
         )
         self._consumer.subscribe([settings.kafka_topic_raw_sensors])
         self._producer = Producer({"bootstrap.servers": settings.kafka_bootstrap_servers})
+        self._dlq = DeadLetterPublisher(
+            bootstrap_servers=settings.kafka_bootstrap_servers,
+            dlq_topic=settings.kafka_topic_raw_dlq,
+            client_id="preprocessing-dlq",
+        )
         self._influx = InfluxDBClient(
             url=settings.influxdb_url, token=settings.influxdb_token, org=settings.influxdb_org
         )
@@ -87,9 +110,20 @@ class PreprocessingWorker:
     def stop(self) -> None:
         self._stop.set()
         self._consumer.close()
+        self._dlq.flush()
+
+    def _send_dlq(self, raw: dict | str, error: str, reason: str) -> None:
+        self._dlq.publish(
+            original_topic=settings.kafka_topic_raw_sensors,
+            payload=raw,
+            error=error,
+            schema_name=SchemaName.RAW_SENSOR.value,
+            extra={"reason": reason},
+        )
+        _stats["dlq_published"] += 1
 
     def _run(self) -> None:
-        logger.info("مصرف‌کننده پیش‌پردازش شروع به کار کرد.")
+        logger.info("مصرف‌کننده پیش‌پردازش (فاز ۲: Schema+DLQ+Quality) شروع به کار کرد.")
         while not self._stop.is_set():
             msg = self._consumer.poll(1.0)
             if msg is None:
@@ -99,17 +133,45 @@ class PreprocessingWorker:
                     continue
                 logger.error("خطای Kafka: %s", msg.error())
                 continue
+
+            raw_bytes = msg.value()
             try:
-                raw = json.loads(msg.value().decode("utf-8"))
+                raw = json.loads(raw_bytes.decode("utf-8"))
+            except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+                _stats["schema_rejected"] += 1
+                self._send_dlq(raw_bytes.decode("utf-8", errors="replace"), str(exc), "invalid_json")
+                continue
+
+            # ۱) اعتبارسنجی Schema Registry
+            _, schema_err = try_validate(raw, SchemaName.RAW_SENSOR)
+            if schema_err is not None:
+                _stats["schema_rejected"] += 1
+                self._send_dlq(raw, str(schema_err), "schema_validation")
+                continue
+
+            # ۲) کیفیت داده: فیلدهای اجباری؛ هشدار محدوده (بدون رد کردن — FR-PRE-01 پرت‌ها را اصلاح می‌کند)
+            quality = validate_record(raw, check_freshness=False)
+            required_failed = any(r.name == "expect_required_fields" and not r.success for r in quality.results)
+            if required_failed:
+                _stats["quality_rejected"] += 1
+                self._send_dlq(raw, "missing required fields", "quality_required_fields")
+                continue
+            if not quality.passed:
+                _stats["quality_warnings"] += 1
+                logger.debug("هشدار کیفیت داده: %s", [f.detail for f in quality.failures])
+
+            try:
                 processed = _process_reading(raw)
                 self._publish(processed)
                 self._store(processed)
                 _stats["processed"] += 1
-            except Exception:  # noqa: BLE001
+            except Exception as exc:  # noqa: BLE001
                 logger.exception("پردازش رکورد ناموفق بود.")
+                self._send_dlq(raw, str(exc), "processing_exception")
 
     def _publish(self, processed: dict) -> None:
-        payload = json.dumps(processed, default=str).encode("utf-8")
+        stamped = stamp_schema_metadata(processed, SchemaName.PROCESSED_SENSOR)
+        payload = json.dumps(stamped, default=str).encode("utf-8")
         self._producer.produce(settings.kafka_topic_processed_sensors, value=payload)
         self._producer.poll(0)
 
@@ -118,7 +180,7 @@ class PreprocessingWorker:
             point = Point("processed_sensor_data").tag("unit_id", str(processed.get("unit_id", 1)))
             ts = processed.get("timestamp")
             if isinstance(ts, str):
-                ts = datetime.fromisoformat(ts)
+                ts = datetime.fromisoformat(ts.replace("Z", "+00:00"))
             point = point.time(ts or datetime.now(timezone.utc), WritePrecision.S)
             for field in SENSOR_RANGES:
                 if field in processed:
@@ -155,3 +217,19 @@ async def shutdown_event() -> None:
 @app.get("/health")
 async def health() -> dict:
     return {"status": "ok", **_stats}
+
+
+@app.get("/quality/stats")
+async def quality_stats() -> dict:
+    """آمار کیفیت داده و DLQ برای مانیتورینگ فاز ۲."""
+    return {
+        "processed": _stats["processed"],
+        "schema_rejected": _stats["schema_rejected"],
+        "quality_rejected": _stats["quality_rejected"],
+        "quality_warnings": _stats["quality_warnings"],
+        "dlq_published": _stats["dlq_published"],
+        "reject_rate": (
+            (_stats["schema_rejected"] + _stats["quality_rejected"])
+            / max(1, _stats["processed"] + _stats["schema_rejected"] + _stats["quality_rejected"])
+        ),
+    }

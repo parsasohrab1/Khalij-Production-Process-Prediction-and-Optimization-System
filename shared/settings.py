@@ -34,8 +34,17 @@ class Settings(BaseSettings):
     )
     kafka_topic_predictions: str = Field(default="process-predictions", alias="KAFKA_TOPIC_PREDICTIONS")
     kafka_topic_alerts: str = Field(default="process-alerts", alias="KAFKA_TOPIC_ALERTS")
+    kafka_topic_raw_dlq: str = Field(default="raw-sensor-data-dlq", alias="KAFKA_TOPIC_RAW_DLQ")
+    kafka_topic_processed_dlq: str = Field(
+        default="processed-sensor-data-dlq", alias="KAFKA_TOPIC_PROCESSED_DLQ"
+    )
     kafka_consumer_group: str = Field(default="khalij-pos", alias="KAFKA_CONSUMER_GROUP")
 
+    # InfluxDB long-term / downsampling (فاز ۲ / R-GEN-02)
+    influxdb_bucket_downsampled: str = Field(
+        default="process_sensors_1m", alias="INFLUXDB_BUCKET_DOWNSAMPLED"
+    )
+    influxdb_hot_retention: str = Field(default="30d", alias="INFLUXDB_HOT_RETENTION")
     # MLflow
     mlflow_tracking_uri: str = Field(default="http://mlflow:5000", alias="MLFLOW_TRACKING_URI")
 
@@ -54,11 +63,19 @@ class Settings(BaseSettings):
     smtp_from_address: str = Field(default="", alias="SMTP_FROM_ADDRESS")
     smtp_to_addresses: str = Field(default="", alias="SMTP_TO_ADDRESSES")
 
-    # Security (NFR-SEC-01, NFR-SEC-02)
+    # Security (NFR-SEC-01, NFR-SEC-02) + فاز ۶ سخت‌سازی
     jwt_secret_key: str = Field(default="dev-secret-change-me", alias="JWT_SECRET_KEY")
     jwt_algorithm: str = Field(default="HS256", alias="JWT_ALGORITHM")
     access_token_expire_minutes: int = Field(default=30, alias="ACCESS_TOKEN_EXPIRE_MINUTES")
     two_factor_required: bool = Field(default=True, alias="TWO_FACTOR_REQUIRED")
+    cors_allow_origins: str = Field(default="*", alias="CORS_ALLOW_ORIGINS")
+    login_max_failures: int = Field(default=5, alias="LOGIN_MAX_FAILURES")
+    login_lockout_seconds: int = Field(default=900, alias="LOGIN_LOCKOUT_SECONDS")
+    rate_limit_login_per_minute: int = Field(default=10, alias="RATE_LIMIT_LOGIN_PER_MINUTE")
+    rate_limit_api_per_minute: int = Field(default=120, alias="RATE_LIMIT_API_PER_MINUTE")
+    enforce_production_secrets: bool = Field(default=False, alias="ENFORCE_PRODUCTION_SECRETS")
+    internal_api_key: str = Field(default="", alias="INTERNAL_API_KEY")
+    data_encryption_key: str = Field(default="", alias="DATA_ENCRYPTION_KEY")
 
     # Service ports
     api_gateway_port: int = Field(default=8000, alias="API_GATEWAY_PORT")

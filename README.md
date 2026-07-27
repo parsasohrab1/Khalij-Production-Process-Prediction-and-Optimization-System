@@ -43,15 +43,24 @@
 | مسیر | توضیح |
 | :--- | :--- |
 | `shared/` | مدل‌های Pydantic، تنظیمات مشترک (`.env`)، ابزارهای Kafka |
-| `services/api-gateway/` | دروازه واحد API، احراز هویت دو مرحله‌ای (NFR-SEC-01) |
-| `services/data-ingestion/` | اتصال OPC-UA/Modbus، بافر محلی هنگام قطعی (FR-DATA-01..03) |
+| `services/api-gateway/` | دروازه واحد API، احراز هویت دو مرحله‌ای (NFR-SEC-01)، داشبورد `/dashboard` (R-GEN-03) |
+| `services/data-ingestion/` | اتصال OPC-UA/Modbus، بافر محلی هنگام قطعی، Circuit Breaker (FR-DATA-01..03) |
 | `services/preprocessing/` | حذف پرت، درون‌یابی، نرمال‌سازی (FR-PRE-01..03) |
 | `services/prediction/` | پیش‌بینی دما با XGBoost/LSTM + توصیه‌گر تکاملی (FR-ML-01..03) |
-| `services/alerting/` | ارسال هشدار تلگرام/ایمیل و ثبت لاگ (FR-ALERT-01..02) |
+| `services/alerting/` | تلگرام/ایمیل، لاگ هشدار، گزارش خودکار شیفت (FR-ALERT + R-GEN-04) |
 | `infra/postgres/init.sql` | Schema اولیه PostgreSQL (اپراتورها، سنسورها، هشدارها، گزارش شیفت) |
 | `infra/mlflow/` | Dockerfile سرور MLflow |
+| `infra/nginx/` | Reverse proxy با TLS 1.3 (NFR-SEC-02) |
+| `shared/schema_registry.py` | Schema Registry سبک (فاز ۲) |
+| `shared/dlq.py` | ناشر Dead Letter Queue (فاز ۲) |
+| `shared/data_quality.py` | Expectation Suite کیفیت داده (فاز ۲) |
+| `infra/influxdb/` | Init bucket cold + Task downsampling |
 | `data/generate_synthetic_data.py` | تولید ۱۰,۰۰۰ رکورد داده سنتتیک برای هر متغیر |
-| `docker-compose.yml` | تعریف کامل زیرساخت (۵ سرویس داده + ۵ میکروسرویس) |
+| `scripts/test_phase1.py` … `test_phase10.py` | تست‌های واحد فاز ۱ تا ۱۰ |
+| `config/pilot.yaml` / `docs/pilot/` | پیکربندی و Runbook پایلوت (فاز ۱۰) |
+| `docker-compose.pilot.yml` | پروفایل Compose پایلوت |
+| `infra/k8s/` | مانیفست‌های Kubernetes + overlays dev/pilot |
+| `docker-compose.yml` | زیرساخت کامل (+ `hardware-sim`, `kafka-init`, `influxdb-init`) |
 
 ### راه‌اندازی سریع (Quick Start)
 
@@ -92,7 +101,299 @@ python data/generate_synthetic_data.py --num-records 10000
 
 ### متغیرهای محیطی کلیدی
 
-فایل `.env.example` تمام متغیرهای مورد نیاز (اتصال InfluxDB/PostgreSQL/Redis/Kafka/MLflow، آستانه‌های هشدار، تنظیمات تلگرام/SMTP و کلید JWT) را با توضیح فارسی شامل می‌شود.
+فایل `.env.example` تمام متغیرهای مورد نیاز (اتصال InfluxDB/PostgreSQL/Redis/Kafka/MLflow، آستانه‌های هشدار، تنظیمات تلگرام/SMTP، کلید JWT و کلید AES-256) را با توضیح فارسی شامل می‌شود.
+
+### داشبورد مانیتورینگ (R-GEN-03 / فاز ۵)
+
+پس از بالا آوردن سرویس‌ها:
+
+- HTTP: [http://localhost:8000/dashboard](http://localhost:8000/dashboard)
+- HTTPS با TLS 1.3: [https://localhost/dashboard](https://localhost/dashboard)
+
+ورود با اپراتور دمو + OTP (NFR-SEC-01). داشبورد شامل تب‌های مانیتورینگ زنده (WebSocket)، اتاق کنترل، بهینه‌سازی، گزارش شیفت (PDF/Excel) و ثبت QR برای 2FA است.
+
+### تست اتصال سخت‌افزاری (فاز ۱ / FR-DATA-01)
+
+```bash
+# بالا آوردن شبیه‌ساز OPC-UA/Modbus + بقیه سرویس‌ها
+docker compose --profile hardware-sim up --build -d
+
+# سوییچ data-ingestion به OPC-UA (در .env)
+# DATA_SOURCE_MODE=opcua
+docker compose up -d data-ingestion
+
+# یا تست واحدهای فاز ۱ بدون Docker
+pip install cryptography PyYAML
+python scripts/test_phase1.py
+```
+
+### فاز ۲ — خط لوله داده و کیفیت داده
+
+| قابلیت | پیاده‌سازی |
+| :--- | :--- |
+| Schema Registry | `shared/schema_registry.py` — اعتبارسنجی Pydantic + نسخه‌بندی |
+| Dead Letter Queue | topicهای `raw-sensor-data-dlq` و `processed-sensor-data-dlq` |
+| Retention / Downsampling | bucket hot=`30d` + cold=`process_sensors_1m` با retention ۵ ساله؛ Task هر ۱ دقیقه |
+| Data Quality | `shared/data_quality.py` + CLI در `services/data-quality/cli.py` |
+
+```bash
+# تست واحد فاز ۲
+python scripts/test_phase2.py
+
+# اجرای Expectation Suite روی CSV سنتتیک
+python data/generate_synthetic_data.py --num-records 1000 --output data/sample.csv
+pip install -r services/data-quality/requirements.txt
+python -m services.data_quality.cli --csv data/sample.csv --limit 1000
+
+# آمار کیفیت از API (پس از login)
+curl -H "Authorization: Bearer <token>" http://localhost:8000/quality/stats
+```
+
+### فاز ۳ — مدل‌سازی و MLOps واقعی
+
+| قابلیت | پیاده‌سازی |
+| :--- | :--- |
+| Batch training + backtesting | `training_pipeline.py` — تقسیم زمانی، MAE/RMSE/MAPE |
+| مقایسه مدل‌ها | XGBoost vs MLP (و LSTM در صورت نصب TensorFlow) |
+| MLflow Registry | Experiment + Staging → Production |
+| Drift Detection | PSI روی دمای راکتور → Re-training خودکار |
+
+```bash
+# تست واحد فاز ۳
+python scripts/test_phase3.py
+
+# آموزش آفلاین از CSV
+python data/generate_synthetic_data.py --num-records 5000 --output data/train.csv
+python scripts/train_model.py --csv data/train.csv --mlflow-uri http://localhost:5000
+
+# APIها
+curl -X POST http://localhost:8003/train
+curl http://localhost:8003/models/comparison
+curl -X POST http://localhost:8003/drift/check
+```
+
+### فاز ۴ — بهینه‌سازی پیشرفته و محدودیت‌های ایمنی
+
+| قابلیت | پیاده‌سازی |
+| :--- | :--- |
+| بهینه‌سازی چندمتغیره | دبی خوراک + فشار هم‌زمان (`MultiVariableEvolutionaryOptimizer`) |
+| Hard Constraints | محدوده ایمن، نرخ تغییر، قید ترکیبی P+T (`safety_constraints.py`) |
+| What-if | شبیه‌سازی پیش از اعمال (`/optimize/whatif`) |
+| حلقه بسته | اعمال توصیه → ثبت راندمان واقعی → خطای پیش‌بینی |
+
+```bash
+python scripts/test_phase4.py
+
+# بهینه‌سازی چندمتغیره
+curl -X POST http://localhost:8003/optimize \
+  -H "Content-Type: application/json" \
+  -d '{"reactor_temp_c":250,"pressure_bar":28,"feed_flow_m3h":380}'
+
+# What-if
+curl -X POST http://localhost:8003/optimize/whatif \
+  -H "Content-Type: application/json" \
+  -d '{"reactor_temp_c":250,"current_pressure_bar":28,"current_feed_flow":380,"proposed_pressure_bar":25,"proposed_feed_flow":320}'
+
+# اعمال + بازخورد
+curl -X POST http://localhost:8003/optimize/apply -H "Content-Type: application/json" \
+  -d '{"recommendation_id":1,"operator_id":1}'
+curl -X POST http://localhost:8003/optimize/feedback -H "Content-Type: application/json" \
+  -d '{"recommendation_id":1,"actual_efficiency":72.5}'
+```
+
+### فاز ۵ — داشبورد و تجربه کاربری اپراتور
+
+| قابلیت | پیاده‌سازی |
+| :--- | :--- |
+| WebSocket زنده | `GET/WS /ws/live?token=...` — سنسور، پیش‌بینی، توصیه، هشدار |
+| داشبورد چندصفحه‌ای | مانیتورینگ / اتاق کنترل / بهینه‌سازی / گزارش / امنیت 2FA |
+| ثبت TOTP با QR | `POST /auth/totp/setup` + تصویر PNG Base64 |
+| خروجی گزارش شیفت | `GET /reports/shift/export?format=pdf\|xlsx` (R-GEN-04) |
+
+```bash
+# تست واحد فاز ۵
+pip install qrcode[pil] openpyxl reportlab pyotp python-jose
+python scripts/test_phase5.py
+
+# داشبورد
+# http://localhost:8000/dashboard
+
+# WebSocket (پس از login)
+# ws://localhost:8000/ws/live?token=<access_token>&unit_id=1
+
+# QR برای Authenticator
+curl -X POST http://localhost:8000/auth/totp/setup \
+  -H "Content-Type: application/json" \
+  -d '{"employee_code":"demo-admin","password":"ChangeMe123!"}'
+
+# خروجی Excel / PDF گزارش شیفت
+curl -H "Authorization: Bearer <token>" \
+  "http://localhost:8000/reports/shift/export?format=xlsx" -o shift.xlsx
+curl -H "Authorization: Bearer <token>" \
+  "http://localhost:8000/reports/shift/export?format=pdf" -o shift.pdf
+```
+
+### فاز ۶ — امنیت و سخت‌سازی
+
+| قابلیت | پیاده‌سازی |
+| :--- | :--- |
+| RBAC | `operator` < `supervisor` < `admin` — apply/export/train محدود شده |
+| قفل حساب | پس از ۵ ورود ناموفق، ۹۰۰ث قفل (`LOGIN_*`) |
+| Rate limit | Redis روی login/API + `limit_req` در nginx |
+| Audit trail | جدول `audit_events` + `GET /security/audit` (admin) |
+| Logout / ابطال توکن | `POST /auth/logout` + blacklist jti در Redis |
+| سیاست رمز | `POST /auth/change-password` + قوانین پیچیدگی |
+| هدرهای امنیتی | CSP / HSTS / X-Frame-Options در Gateway و nginx |
+| CORS محدود | `CORS_ALLOW_ORIGINS` |
+| کلید داخلی سرویس‌ها | `INTERNAL_API_KEY` → هدر `X-Internal-Api-Key` |
+| Secrets در production | `ENFORCE_PRODUCTION_SECRETS` / `ENVIRONMENT=production` |
+
+```bash
+python scripts/test_phase6.py
+
+# وضعیت امنیتی (admin)
+curl -H "Authorization: Bearer <token>" http://localhost:8000/security/status
+
+# لاگ audit
+curl -H "Authorization: Bearer <token>" http://localhost:8000/security/audit?limit=20
+```
+
+نقش‌های دمو (رمز `ChangeMe123!` + همان OTP secret): `demo-admin` / `demo-supervisor` / `demo-operator`
+
+### فاز ۷ — مقیاس‌پذیری و کارایی
+
+| قابلیت | پیاده‌سازی |
+| :--- | :--- |
+| شاردینگ واحدها | `DATA_UNIT_IDS` + `INGESTION_SHARD_COUNT` / `SHARD_ID` |
+| Kafka پرتوان | compression lz4، linger/batch، پارتیشن پیش‌فرض ۱۲ |
+| Influx batch | `InfluxRawWriter.write_batch` + async WriteOptions |
+| بک‌پرشر | توقف موقت ingestion وقتی بافر محلی پر است |
+| بودجه تأخیر | `LatencyTracker` + `/metrics/latency` (NFR-PER-01 <۲ث) |
+| Liveness/Readiness | `/health/live` و `/health/ready` روی سرویس‌ها |
+| Scale compose | `docker-compose.scale.yml` |
+
+```bash
+python scripts/test_phase7.py
+python scripts/load_test_scale.py --units 1000 --seconds 3
+
+# مقیاس افقی (مثال ۳ ingestion + ۲ preprocessing + ۲ prediction)
+docker compose -f docker-compose.yml -f docker-compose.scale.yml up -d \
+  --scale data-ingestion=3 --scale preprocessing=2 --scale prediction=2
+
+# متریک تأخیر پیش‌بینی
+curl -H "Authorization: Bearer <token>" http://localhost:8000/metrics/latency
+```
+
+برای نزدیک شدن به هدف ۵۰٬۰۰۰ سنسور: `DATA_UNIT_IDS=1-50000`، افزایش `KAFKA_PARTITIONS`، و scale روی ingestion/preprocessing/prediction.
+
+### فاز ۸ — مشاهده‌پذیری و Uptime (NFR-PER-02)
+
+| قابلیت | پیاده‌سازی |
+| :--- | :--- |
+| Prometheus metrics | `/metrics` روی همه سرویس‌ها + `shared/metrics.py` |
+| Grafana dashboard | `infra/observability/grafana/dashboards/khalij-pos-overview.json` |
+| Loki + Promtail | جمع‌آوری لاگ JSON کانتینرها |
+| Tempo (OTLP) | tracing توزیع‌شده با `OTEL_EXPORTER_OTLP_ENDPOINT` |
+| Alert rules | ServiceDown / HighErrorRate / HighPredictionLatency / ErrorBudgetBurn |
+| SLO helper | `shared/slo.py` + `GET /observability/slo` |
+
+```bash
+pip install prometheus-client httpx
+python scripts/test_phase8.py
+
+# استک مشاهده‌پذیری
+docker compose -f docker-compose.yml -f docker-compose.observability.yml --profile observability up -d
+
+# UI
+# Grafana    http://localhost:3000  (admin/admin)
+# Prometheus http://localhost:9090
+# Tempo      http://localhost:3200
+
+curl -H "Authorization: Bearer <token>" http://localhost:8000/observability/status
+curl -H "Authorization: Bearer <token>" "http://localhost:8000/observability/slo?downtime_seconds=30"
+```
+
+بودجه خطای هفتگی ۹۹.۹۹٪ حدود **۶۰.۵ ثانیه** downtime است؛ هشدار `ServiceDown` پس از ۱ دقیقه قطعی فعال می‌شود.
+
+### فاز ۹ — استقرار Kubernetes
+
+| قابلیت | پیاده‌سازی |
+| :--- | :--- |
+| Kustomize | `infra/k8s/base` + overlay `dev` |
+| Apps | Deployment/Service/PDB برای ۵ میکروسرویس |
+| Infra | Postgres / Redis / Kafka / InfluxDB |
+| Probes | `/health/live` + `/health/ready` |
+| HPA | مقیاس خودکار روی CPU |
+| Ingress + TLS | `pos.khalij.local` + NetworkPolicy |
+| Observability | Prometheus با kubernetes pod SD |
+| Deploy | `scripts/deploy-k8s.sh` / `.ps1` |
+
+```bash
+pip install PyYAML
+python scripts/test_phase9.py
+
+# استقرار (نیاز به کلاستر + docker)
+./scripts/deploy-k8s.sh dev
+# یا
+.\scripts\deploy-k8s.ps1 -Overlay dev
+
+kubectl apply -k infra/k8s/base
+kubectl -n khalij-pos get pods,svc,ingress,hpa
+```
+
+جزئیات: [`infra/k8s/README.md`](infra/k8s/README.md)
+
+### فاز ۱۰ — پایلوت عملیاتی (Olefin Unit 1)
+
+| قابلیت | پیاده‌سازی |
+| :--- | :--- |
+| پیکربندی پایلوت | `config/pilot.yaml` (حالت shadow/assisted، ACها) |
+| Compose پایلوت | `docker-compose.pilot.yml` |
+| K8s overlay | `infra/k8s/overlays/pilot` → host `pilot.pos.khalij.local` |
+| Runbook / UAT | `docs/pilot/RUNBOOK.md`, `ACCEPTANCE.md`, `REPORT_TEMPLATE.md` |
+| Readiness gate | `scripts/pilot_readiness.py` |
+| Smoke test | `scripts/pilot_smoke.py` (--offline یا --base-url) |
+
+```bash
+pip install PyYAML
+python scripts/test_phase10.py
+python scripts/pilot_readiness.py
+python scripts/pilot_smoke.py --offline
+
+# استقرار پایلوت محلی
+docker compose -f docker-compose.yml -f docker-compose.pilot.yml up -d --build
+python scripts/pilot_smoke.py --base-url http://localhost:8000
+
+# Kubernetes
+kubectl apply -k infra/k8s/overlays/pilot
+```
+
+اعمال خودکار به DCS تا امضای ایمنی **غیرفعال** است (`auto_apply_setpoints`).
+
+### ماتریس پوشش نیازمندی‌های SRS
+
+| شناسه | نیاز | وضعیت پیاده‌سازی |
+| :--- | :--- | :--- |
+| R-GEN-01 | دریافت ۱ رکورد/ثانیه | ✅ `data-ingestion` + AC-01 پایلوت |
+| R-GEN-02 | Data Lake پنج‌ساله | ✅ InfluxDB retention=`1825d` |
+| R-GEN-03 | داشبورد مانیتورینگ + هشدارها | ✅ `/dashboard` + AC-07 |
+| R-GEN-04 | گزارش خودکار انرژی پایان شیفت | ✅ PDF/Excel + AC-08 |
+| FR-DATA-01 | OPC-UA / Modbus | ✅ کلاینت + `hardware_sim` + Circuit Breaker |
+| FR-DATA-02 | T/P/F/L/GC/RPM | ✅ نگاشت تگ و مدل داده |
+| FR-DATA-03 | بافر محلی هنگام قطعی | ✅ `LocalBuffer` + Fallback |
+| FR-PRE-01 | حذف پرت (IQR/Z-Score) | ✅ `preprocessing` |
+| FR-PRE-02 | درون‌یابی خطی NaN | ✅ `preprocessing` |
+| FR-PRE-03 | نرمال‌سازی Min-Max | ✅ `preprocessing` |
+| FR-ML-01 | پیش‌بینی دما ۶۰ثانیه (LSTM/XGBoost) | ✅ + AC-02 پایلوت |
+| FR-ML-02 | هشدار Critical در انحراف >۵٪ | ✅ + AC-03 |
+| FR-ML-03 | توصیه‌گر تکاملی دبی خوراک | ✅ + AC-04 (بدون auto-apply) |
+| FR-ALERT-01 | تلگرام / ایمیل / اتاق کنترل | ✅ `alerting` + Redis |
+| FR-ALERT-02 | لاگ هشدار + اپراتور پاسخ‌دهنده | ✅ PostgreSQL `alerts` |
+| NFR-SEC-01 | احراز هویت دو مرحله‌ای | ✅ + AC-05 |
+| NFR-SEC-02 | AES-256 / TLS 1.3 | ✅ crypto + tls-gateway + Ingress |
+| NFR-PER-01 | زمان پاسخ پیش‌بینی <۲ث | ✅ LatencyTracker + AC-02 |
+| NFR-SCL-01 | مقیاس افقی تا ۵۰k سنسور | ✅ شاردینگ + HPA |
+| NFR-PER-02 | Uptime ۹۹.۹۹٪ | ✅ SLO + AC-06 + پایلوت ۱۴روزه |
 
 ---
 

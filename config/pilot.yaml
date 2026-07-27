@@ -1,0 +1,81 @@
+# ==========================================================================
+# فاز ۱۰ — پیکربندی پایلوت واحد الفین (Olefin Unit 1)
+# ==========================================================================
+pilot:
+  name: "khalij-pos-olefin-pilot"
+  version: "1.0.0"
+  site: "هلدینگ خلیج فارس — واحد الفین ۱"
+  unit_id: 1
+  unit_name: "Olefin Unit 1"
+  duration_days: 14
+  mode: "shadow"   # shadow = توصیه بدون اعمال خودکار | assisted = اپراتور اعمال می‌کند
+  data_source_mode: "simulator"  # در سایت: opcua | modbus
+  owner: "control-room-supervisor"
+  rollback_max_minutes: 30
+
+scope:
+  sensors:
+    - reactor_temp_c
+    - reactor_pressure_bar
+    - feed_flow_m3h
+    - tank_level_percent
+    - ethylene_conc_percent
+    - compressor_rpm
+  features_enabled:
+    - ingestion
+    - preprocessing
+    - prediction
+    - alerts
+    - optimization_recommend
+    - whatif
+    - shift_reports
+    - dashboard
+    - audit
+  features_disabled_until_signoff:
+    - auto_apply_setpoints   # اعمال خودکار به DCS ممنوع تا تأیید ایمنی
+
+acceptance_criteria:
+  - id: AC-01
+    srs: R-GEN-01
+    description: "حداقل ۱ رکورد سنسور در ثانیه برای واحد پایلوت"
+    metric: "ingestion_rate_hz >= 1"
+  - id: AC-02
+    srs: FR-ML-01
+    description: "پیش‌بینی دما با افق ۶۰ثانیه و P95 تأخیر < ۲ثانیه"
+    metric: "prediction_p95_ms <= 2000"
+  - id: AC-03
+    srs: FR-ML-02
+    description: "هشدار Critical در انحراف >۵٪ ثبت و به اتاق کنترل می‌رسد"
+    metric: "critical_alert_delivered == true"
+  - id: AC-04
+    srs: FR-ML-03
+    description: "توصیه بهینه‌سازی با قیود ایمنی تولید می‌شود"
+    metric: "optimize_constraints_satisfied == true"
+  - id: AC-05
+    srs: NFR-SEC-01
+    description: "ورود اپراتور فقط با 2FA"
+    metric: "login_requires_otp == true"
+  - id: AC-06
+    srs: NFR-PER-02
+    description: "در بازه پایلوت downtime تجمعی کمتر از بودجه SLO هفتگی"
+    metric: "weekly_downtime_s <= 60.5"
+  - id: AC-07
+    srs: R-GEN-03
+    description: "داشبورد زنده سنسور/پیش‌بینی/هشدار قابل مشاهده است"
+    metric: "dashboard_snapshot_ok == true"
+  - id: AC-08
+    srs: R-GEN-04
+    description: "گزارش شیفت قابل تولید و خروجی PDF/Excel"
+    metric: "shift_report_export_ok == true"
+
+gates:
+  go_live:
+    - pilot_readiness_script_pass
+    - secrets_rotated_from_defaults
+    - network_firewall_reviewed
+    - operator_training_completed
+    - safety_signoff_supervisor
+  exit_pilot:
+    - all_ac_passed_or_waived
+    - post_mortem_filed
+    - production_runbook_updated

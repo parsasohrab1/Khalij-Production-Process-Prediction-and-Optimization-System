@@ -7,6 +7,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY shared ./shared
 COPY services/data-ingestion/app ./app
+COPY services/data-ingestion/config ./config
 
 ENV PYTHONPATH=/app
 EXPOSE 8001

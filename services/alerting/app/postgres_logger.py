@@ -1,10 +1,15 @@
-"""ثبت لاگ کلیه هشدارها با زمان دقیق و شناسه اپراتور پاسخ‌دهنده (FR-ALERT-02)."""
+"""ثبت لاگ کلیه هشدارها با زمان دقیق و شناسه اپراتور پاسخ‌دهنده (FR-ALERT-02).
+
+متن هشدار با AES-256-GCM رمزنگاری می‌شود (NFR-SEC-02) پیش از ذخیره در PostgreSQL.
+"""
 from __future__ import annotations
 
 import logging
 
 import psycopg2
 import psycopg2.extras
+
+from shared.crypto import decrypt_at_rest, encrypt_at_rest
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +35,7 @@ class AlertRepository:
         """
         params = {
             "level": alert["level"],
-            "message": alert["message"],
+            "message": encrypt_at_rest(alert["message"]),
             "predicted_value": alert.get("predicted_value"),
             "nominal_value": alert.get("nominal_value"),
             "deviation_percent": alert.get("deviation_percent"),
@@ -72,7 +77,15 @@ class AlertRepository:
         try:
             with self._connect() as conn, conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
                 cur.execute(query, (limit,))
-                return [dict(row) for row in cur.fetchall()]
+                rows = []
+                for row in cur.fetchall():
+                    item = dict(row)
+                    try:
+                        item["message"] = decrypt_at_rest(item["message"] or "")
+                    except RuntimeError:
+                        pass  # در صورت نبود کلید، مقدار رمزشده را همان‌طور برمی‌گرداند
+                    rows.append(item)
+                return rows
         except Exception:  # noqa: BLE001
             logger.exception("خوانش هشدارهای اخیر از PostgreSQL ناموفق بود.")
             return []

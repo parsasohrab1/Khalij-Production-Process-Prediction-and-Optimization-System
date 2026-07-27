@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: khalij-pos-config
+  namespace: khalij-pos
+data:
+  ENVIRONMENT: "pilot"
+  LOG_FORMAT: "json"
+  DATA_SOURCE_MODE: "simulator"
+  DATA_UNIT_IDS: "1"
+  INGESTION_SHARD_COUNT: "1"
+  PREDICTION_LATENCY_BUDGET_MS: "2000"
+  CRITICAL_DEVIATION_PERCENT: "5.0"
+  TWO_FACTOR_REQUIRED: "true"
+  ENFORCE_PRODUCTION_SECRETS: "true"
+  CORS_ALLOW_ORIGINS: "https://pilot.pos.khalij.local"

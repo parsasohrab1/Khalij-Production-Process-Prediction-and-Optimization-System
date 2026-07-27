@@ -4,8 +4,13 @@ from __future__ import annotations
 import logging
 
 from pymodbus.client import AsyncModbusTcpClient
+from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
 logger = logging.getLogger(__name__)
+
+
+class ModbusConnectionError(RuntimeError):
+    """هنگامی که اتصال Modbus TCP برقرار نشود، صادر می‌شود."""
 
 
 class ModbusClient:
@@ -18,8 +23,17 @@ class ModbusClient:
         self.scale = scale or {}
         self._client = AsyncModbusTcpClient(host=host, port=port)
 
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=1, max=10),
+        retry=retry_if_exception_type((OSError, ConnectionError, TimeoutError)),
+        reraise=True,
+    )
     async def connect(self) -> None:
-        await self._client.connect()
+        """اتصال به سرور Modbus TCP با Retry Policy نمایی (Exponential Backoff)."""
+        connected = await self._client.connect()
+        if not connected:
+            raise ModbusConnectionError(f"اتصال به {self.host}:{self.port} ناموفق بود.")
         logger.info("اتصال Modbus TCP به %s:%s برقرار شد.", self.host, self.port)
 
     async def disconnect(self) -> None:

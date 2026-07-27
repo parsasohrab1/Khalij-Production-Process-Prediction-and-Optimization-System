@@ -1,0 +1,46 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: khalij-pos
+
+labels:
+  - pairs:
+      app.kubernetes.io/part-of: khalij-pos
+      app.kubernetes.io/managed-by: kustomize
+    includeSelectors: false
+
+resources:
+  - namespace.yaml
+  - configmap.yaml
+  - secrets.example.yaml
+  - serviceaccount.yaml
+  - infra/postgres.yaml
+  - infra/redis.yaml
+  - infra/kafka.yaml
+  - infra/influxdb.yaml
+  - apps/api-gateway.yaml
+  - apps/data-ingestion.yaml
+  - apps/preprocessing.yaml
+  - apps/prediction.yaml
+  - apps/alerting.yaml
+  - networking/ingress.yaml
+  - autoscaling/hpa.yaml
+  - observability/prometheus.yaml
+
+configMapGenerator:
+  - name: postgres-init
+    files:
+      - init.sql=files/init.sql
+    options:
+      disableNameSuffixHash: true
+
+images:
+  - name: khalij/api-gateway
+    newTag: latest
+  - name: khalij/data-ingestion
+    newTag: latest
+  - name: khalij/preprocessing
+    newTag: latest
+  - name: khalij/prediction
+    newTag: latest
+  - name: khalij/alerting
+    newTag: latest

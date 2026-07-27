@@ -14,6 +14,7 @@ dist/
 .env
 .env.*
 !.env.example
+docs/pilot/last_smoke_report.json
 
 ## Data
 data/*.csv
@@ -22,6 +23,7 @@ data/*.csv
 ## MLflow
 mlruns/
 mlartifacts/
+.mlruns_test/
 
 ## Docker / infra volumes
 infra/**/data/

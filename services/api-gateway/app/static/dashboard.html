@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>اتاق عملیات — Khalij POS</title>
+  <style>
+    :root {
+      --bg: #0b121a;
+      --panel: #141e2b;
+      --panel-2: #1a2738;
+      --text: #e6eef7;
+      --muted: #8fa3b8;
+      --accent: #2f9e8f;
+      --accent-2: #3d8bfd;
+      --ok: #2ecc71;
+      --warn: #f0a202;
+      --crit: #e74c3c;
+      --border: #243447;
+      --live: #2ecc71;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Vazirmatn", "Segoe UI", Tahoma, sans-serif;
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #16324a 0%, transparent 55%),
+        radial-gradient(900px 500px at 100% 0%, #1a3a35 0%, transparent 50%),
+        var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+    header {
+      padding: 0.9rem 1.25rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+      background: rgba(11, 18, 26, 0.85);
+      backdrop-filter: blur(8px);
+      position: sticky;
+      top: 0;
+      z-index: 20;
+    }
+    header h1 { margin: 0; font-size: 1.15rem; font-weight: 700; letter-spacing: -0.02em; }
+    header .sub { color: var(--muted); font-size: 0.8rem; margin-top: 0.15rem; }
+    .auth, .row { display: flex; gap: 0.45rem; align-items: center; flex-wrap: wrap; }
+    input, button, select {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 0.45rem 0.7rem;
+      border-radius: 8px;
+      font-size: 0.88rem;
+    }
+    button {
+      background: linear-gradient(180deg, #39b3a3, #2a8f82);
+      border-color: #2a8f82;
+      cursor: pointer;
+      font-weight: 700;
+    }
+    button.secondary { background: transparent; color: var(--accent-2); border-color: var(--border); }
+    button.danger { background: #a33a32; border-color: #a33a32; }
+    nav.tabs {
+      display: flex;
+      gap: 0.35rem;
+      padding: 0.75rem 1.25rem 0;
+      flex-wrap: wrap;
+    }
+    nav.tabs button {
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--muted);
+      font-weight: 600;
+      padding: 0.55rem 0.9rem;
+    }
+    nav.tabs button.active {
+      color: var(--text);
+      border-color: var(--border);
+      background: var(--panel);
+    }
+    #status-msg { color: var(--muted); font-size: 0.85rem; padding: 0.5rem 1.25rem; }
+    main { padding: 0.75rem 1.25rem 1.5rem; }
+    .view { display: none; }
+    .view.active { display: block; }
+    .grid {
+      display: grid;
+      gap: 0.9rem;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    }
+    .panel {
+      background: linear-gradient(180deg, var(--panel-2), var(--panel));
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1rem;
+      animation: fadeIn 0.35s ease;
+    }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+    .panel h2 {
+      margin: 0 0 0.75rem;
+      font-size: 0.9rem;
+      color: var(--muted);
+      font-weight: 700;
+    }
+    .metric {
+      display: flex;
+      justify-content: space-between;
+      gap: 1rem;
+      padding: 0.4rem 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.92rem;
+    }
+    .metric:last-child { border-bottom: none; }
+    .metric .val { font-weight: 700; font-variant-numeric: tabular-nums; }
+    .alert {
+      padding: 0.65rem 0.8rem;
+      border-radius: 8px;
+      margin-bottom: 0.5rem;
+      font-size: 0.85rem;
+      border-right: 3px solid var(--muted);
+      background: #0f1722;
+    }
+    .alert.critical { border-color: var(--crit); }
+    .alert.warning { border-color: var(--warn); }
+    .alert.info { border-color: var(--ok); }
+    .wide { grid-column: 1 / -1; }
+    .status-dot {
+      display: inline-block;
+      width: 9px; height: 9px;
+      border-radius: 50%;
+      background: var(--muted);
+      margin-right: 0.35rem;
+      vertical-align: middle;
+    }
+    .status-dot.on { background: var(--live); box-shadow: 0 0 0 0 rgba(46,204,113,0.6); animation: pulse 1.6s infinite; }
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(46,204,113,0.55); }
+      70% { box-shadow: 0 0 0 8px rgba(46,204,113,0); }
+      100% { box-shadow: 0 0 0 0 rgba(46,204,113,0); }
+    }
+    .form-grid { display: grid; gap: 0.55rem; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
+    .form-grid label { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.8rem; color: var(--muted); }
+    pre.out {
+      background: #0c131c;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.75rem;
+      overflow: auto;
+      font-size: 0.78rem;
+      max-height: 280px;
+      white-space: pre-wrap;
+      direction: ltr;
+      text-align: left;
+    }
+    .qr-box { text-align: center; }
+    .qr-box img {
+      width: 180px; height: 180px;
+      background: #fff;
+      border-radius: 8px;
+      padding: 8px;
+    }
+    .secret {
+      font-family: ui-monospace, Consolas, monospace;
+      direction: ltr;
+      word-break: break-all;
+      font-size: 0.85rem;
+      color: var(--accent-2);
+    }
+    table.reports {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+    }
+    table.reports th, table.reports td {
+      border-bottom: 1px solid var(--border);
+      padding: 0.5rem 0.35rem;
+      text-align: right;
+    }
+    table.reports th { color: var(--muted); font-weight: 600; }
+    .hidden { display: none !important; }
+    .badge {
+      display: inline-block;
+      padding: 0.15rem 0.45rem;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      background: #1e2f42;
+      color: var(--muted);
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1><span class="status-dot" id="live-dot"></span>Khalij POS — اتاق عملیات</h1>
+      <div class="sub">فاز ۵ · R-GEN-03 / R-GEN-04 · WebSocket زنده · 2FA</div>
+    </div>
+    <div class="auth" id="auth-box">
+      <input id="emp" placeholder="کد کارمندی" value="demo-admin" />
+      <input id="pwd" type="password" placeholder="رمز عبور" value="ChangeMe123!" />
+      <input id="otp" placeholder="OTP" style="width:5.5rem" />
+      <button id="btn-login">ورود</button>
+      <button id="btn-logout" class="secondary hidden">خروج</button>
+    </div>
+  </header>
+
+  <nav class="tabs" id="tabs">
+    <button data-view="monitor" class="active">مانیتورینگ</button>
+    <button data-view="control">اتاق کنترل</button>
+    <button data-view="optimize">بهینه‌سازی</button>
+    <button data-view="reports">گزارش شیفت</button>
+    <button data-view="security">امنیت 2FA</button>
+  </nav>
+  <p id="status-msg">برای مشاهده داده‌ها وارد شوید (2FA اجباری — NFR-SEC-01).</p>
+
+  <main>
+    <section class="view active" id="view-monitor">
+      <div class="grid">
+        <div class="panel">
+          <h2>سنسورهای زنده <span class="badge" id="ws-badge">قطع</span></h2>
+          <div id="sensors">—</div>
+        </div>
+        <div class="panel">
+          <h2>پیش‌بینی دما (۶۰ ثانیه)</h2>
+          <div id="prediction">—</div>
+        </div>
+        <div class="panel">
+          <h2>توصیه بهینه‌سازی</h2>
+          <div id="recommendation">—</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="view" id="view-control">
+      <div class="grid">
+        <div class="panel wide">
+          <h2>هشدارهای پیش‌بینی‌شده (اتاق کنترل)</h2>
+          <div id="alerts">هنوز هشداری نیست.</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="view" id="view-optimize">
+      <div class="grid">
+        <div class="panel">
+          <h2>بهینه‌سازی چندمتغیره</h2>
+          <div class="form-grid">
+            <label>دما (°C)<input id="opt-temp" type="number" value="250" step="0.1" /></label>
+            <label>فشار (bar)<input id="opt-p" type="number" value="28" step="0.1" /></label>
+            <label>دبی (m³/h)<input id="opt-f" type="number" value="380" step="1" /></label>
+          </div>
+          <div class="row" style="margin-top:0.75rem">
+            <button id="btn-optimize">اجرای Optimize</button>
+            <button id="btn-whatif" class="secondary">What-if</button>
+          </div>
+          <div class="form-grid" style="margin-top:0.75rem">
+            <label>فشار پیشنهادی<input id="wi-p" type="number" value="25" step="0.1" /></label>
+            <label>دبی پیشنهادی<input id="wi-f" type="number" value="320" step="1" /></label>
+            <label>شناسه توصیه<input id="apply-id" type="number" placeholder="recommendation_id" /></label>
+            <label>راندمان واقعی<input id="fb-eff" type="number" value="72.5" step="0.1" /></label>
+          </div>
+          <div class="row" style="margin-top:0.75rem">
+            <button id="btn-apply" class="secondary">اعمال توصیه</button>
+            <button id="btn-feedback" class="secondary">ثبت بازخورد</button>
+          </div>
+        </div>
+        <div class="panel">
+          <h2>نتیجه</h2>
+          <pre class="out" id="opt-out">—</pre>
+        </div>
+      </div>
+    </section>
+
+    <section class="view" id="view-reports">
+      <div class="grid">
+        <div class="panel wide">
+          <h2>گزارش بهینه‌سازی انرژی شیفت (R-GEN-04)</h2>
+          <div class="row" style="margin-bottom:0.75rem">
+            <button id="btn-gen-report" class="secondary">تولید گزارش شیفت</button>
+            <button id="btn-export-xlsx">خروجی Excel</button>
+            <button id="btn-export-pdf" class="secondary">خروجی PDF</button>
+            <button id="btn-refresh-reports" class="secondary">بروزرسانی</button>
+          </div>
+          <div id="shift-reports">—</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="view" id="view-security">
+      <div class="grid">
+        <div class="panel">
+          <h2>ثبت Authenticator (QR)</h2>
+          <p style="color:var(--muted);font-size:0.85rem;margin-top:0">
+            رمز عبور را تأیید کنید تا QR برای Google Authenticator / Authy ساخته شود.
+          </p>
+          <div class="row">
+            <button id="btn-qr">نمایش QR</button>
+          </div>
+          <div class="qr-box" id="qr-box" style="margin-top:1rem"></div>
+        </div>
+        <div class="panel">
+          <h2>راهنما</h2>
+          <ol style="color:var(--muted);font-size:0.88rem;line-height:1.7;padding-right:1.1rem;margin:0">
+            <li>روی «نمایش QR» کلیک کنید.</li>
+            <li>QR را با اپ Authenticator اسکن کنید.</li>
+            <li>کد ۶ رقمی را در ورود وارد کنید.</li>
+          </ol>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const API = "";
+    let token = localStorage.getItem("khalij_token") || "";
+    let pendingToken = "";
+    let ws = null;
+    let pollTimer = null;
+
+    const $ = (id) => document.getElementById(id);
+
+    function authHeaders() {
+      const h = { "Content-Type": "application/json" };
+      if (token) h.Authorization = `Bearer ${token}`;
+      return h;
+    }
+
+    async function api(path, opts = {}) {
+      const res = await fetch(API + path, { ...opts, headers: { ...authHeaders(), ...(opts.headers || {}) } });
+      if (!res.ok) throw new Error(await res.text());
+      const ct = res.headers.get("content-type") || "";
+      if (ct.includes("application/json")) return res.json();
+      return res;
+    }
+
+    function kv(obj, keys) {
+      if (!obj || Object.keys(obj).length === 0) return "داده‌ای موجود نیست.";
+      return keys.map(([k, label]) => {
+        let v = obj[k];
+        if (v == null && obj.recommended && typeof obj.recommended === "object") {
+          v = obj.recommended[k];
+        }
+        if (typeof v === "object" && v !== null) v = JSON.stringify(v);
+        return `<div class="metric"><span>${label}</span><span class="val">${v ?? "—"}</span></div>`;
+      }).join("");
+    }
+
+    function renderSensors(sensors) {
+      $("sensors").innerHTML = kv(sensors, [
+        ["reactor_temp_c", "دمای راکتور (°C)"],
+        ["reactor_pressure_bar", "فشار (bar)"],
+        ["feed_flow_m3h", "دبی خوراک (m³/h)"],
+        ["tank_level_percent", "سطح مخزن (%)"],
+        ["ethylene_conc_percent", "اتیلن (%)"],
+        ["compressor_rpm", "دور کمپرسور"],
+      ]);
+    }
+
+    function renderPrediction(prediction) {
+      $("prediction").innerHTML = kv(prediction, [
+        ["predicted_reactor_temp_c", "دمای پیش‌بینی‌شده (°C)"],
+        ["nominal_reactor_temp_c", "دمای نامی (°C)"],
+        ["deviation_percent", "انحراف (%)"],
+        ["horizon_seconds", "افق (ثانیه)"],
+        ["model_name", "مدل"],
+      ]);
+    }
+
+    function renderRecommendation(recommendation) {
+      const rec = recommendation || {};
+      const nested = rec.recommended || {};
+      $("recommendation").innerHTML = kv({ ...rec, ...nested }, [
+        ["feed_flow_m3h", "دبی پیشنهادی"],
+        ["pressure_bar", "فشار پیشنهادی"],
+        ["expected_efficiency_gain", "بهبود راندمان (%)"],
+        ["algorithm", "الگوریتم"],
+        ["recommendation_id", "شناسه توصیه"],
+        ["constraints_satisfied", "قیود ایمنی"],
+      ]);
+      if (rec.recommendation_id) $("apply-id").value = rec.recommendation_id;
+    }
+
+    function renderAlerts(alerts) {
+      if (Array.isArray(alerts) && alerts.length) {
+        $("alerts").innerHTML = alerts.map(a =>
+          `<div class="alert ${a.level || "info"}"><strong>[${(a.level || "").toUpperCase()}]</strong> ${a.message || ""}
+           <br/><span style="color:var(--muted)">${a.raised_at || ""} · ${a.sensor_tag || ""}</span></div>`
+        ).join("");
+      } else {
+        $("alerts").textContent = "هنوز هشداری نیست.";
+      }
+    }
+
+    function applySnapshot(data) {
+      renderSensors(data.sensors || {});
+      renderPrediction(data.prediction || {});
+      if (data.recommendation) renderRecommendation(data.recommendation);
+      renderAlerts(data.alerts || []);
+      $("live-dot").classList.add("on");
+      $("ws-badge").textContent = "زنده";
+      $("status-msg").textContent = "به‌روزرسانی زنده: " + new Date(data.timestamp || Date.now()).toLocaleString("fa-IR");
+    }
+
+    function connectWs() {
+      if (!token) return;
+      if (ws) {
+        try { ws.close(); } catch (_) {}
+      }
+      const proto = location.protocol === "https:" ? "wss" : "ws";
+      const url = `${proto}://${location.host}/ws/live?token=${encodeURIComponent(token)}&unit_id=1`;
+      ws = new WebSocket(url);
+      ws.onopen = () => {
+        $("ws-badge").textContent = "متصل";
+        $("live-dot").classList.add("on");
+      };
+      ws.onmessage = (ev) => {
+        try {
+          const data = JSON.parse(ev.data);
+          if (data.type === "error") {
+            $("status-msg").textContent = data.message || "خطای WebSocket";
+            return;
+          }
+          if (data.type === "snapshot") applySnapshot(data);
+        } catch (e) {
+          console.error(e);
+        }
+      };
+      ws.onclose = () => {
+        $("ws-badge").textContent = "قطع";
+        $("live-dot").classList.remove("on");
+        if (token) setTimeout(connectWs, 3000);
+      };
+      ws.onerror = () => { try { ws.close(); } catch (_) {} };
+    }
+
+    async function refreshFallback() {
+      if (!token) return;
+      try {
+        const [sensors, prediction, recommendation, alerts] = await Promise.all([
+          api("/sensors/latest"),
+          api("/predictions/latest"),
+          api("/recommendations/latest"),
+          api("/alerts/control-room?limit=20"),
+        ]);
+        applySnapshot({ sensors, prediction, recommendation, alerts, timestamp: new Date().toISOString() });
+        $("ws-badge").textContent = "HTTP";
+      } catch (e) {
+        $("status-msg").textContent = "خطا: " + e.message;
+      }
+    }
+
+    async function loadReports() {
+      if (!token) return;
+      try {
+        const reports = await api("/reports/shift/recent?limit=20");
+        if (!Array.isArray(reports) || !reports.length) {
+          $("shift-reports").textContent = "گزارشی ثبت نشده است.";
+          return;
+        }
+        $("shift-reports").innerHTML = `
+          <table class="reports">
+            <thead><tr><th>ID</th><th>شیفت</th><th>راندمان</th><th>صرفه‌جویی kWh</th><th>خلاصه</th></tr></thead>
+            <tbody>
+              ${reports.map(r => `<tr>
+                <td>${r.id ?? ""}</td>
+                <td>${r.shift ?? ""}</td>
+                <td>${r.avg_efficiency ?? ""}</td>
+                <td>${r.energy_saved_kwh ?? 0}</td>
+                <td>${r.recommendation_summary || ""}</td>
+              </tr>`).join("")}
+            </tbody>
+          </table>`;
+      } catch (e) {
+        $("shift-reports").textContent = "خطا: " + e.message;
+      }
+    }
+
+    async function downloadExport(fmt) {
+      if (!token) return;
+      const res = await fetch(`${API}/reports/shift/export?format=${fmt}&limit=50`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const blob = await res.blob();
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `shift_reports.${fmt === "pdf" ? "pdf" : "xlsx"}`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+
+    function setLoggedIn(ok) {
+      $("btn-logout").classList.toggle("hidden", !ok);
+      if (ok) {
+        connectWs();
+        refreshFallback();
+        loadReports();
+        if (pollTimer) clearInterval(pollTimer);
+        pollTimer = setInterval(() => {
+          if (!ws || ws.readyState !== WebSocket.OPEN) refreshFallback();
+        }, 5000);
+      } else {
+        if (ws) try { ws.close(); } catch (_) {}
+        if (pollTimer) clearInterval(pollTimer);
+        token = "";
+        localStorage.removeItem("khalij_token");
+      }
+    }
+
+    async function login() {
+      $("status-msg").textContent = "در حال ورود...";
+      try {
+        if (!pendingToken) {
+          const res = await api("/auth/login", {
+            method: "POST",
+            body: JSON.stringify({ employee_code: $("emp").value, password: $("pwd").value }),
+          });
+          if (res.requires_otp) {
+            pendingToken = res.pending_token;
+            $("status-msg").textContent = "رمز عبور تأیید شد. کد OTP را وارد کنید (یا از تب امنیت QR بگیرید).";
+            return;
+          }
+          token = res.access_token;
+        } else {
+          const res = await api("/auth/verify-otp", {
+            method: "POST",
+            body: JSON.stringify({ pending_token: pendingToken, otp_code: $("otp").value }),
+          });
+          token = res.access_token;
+          pendingToken = "";
+        }
+        localStorage.setItem("khalij_token", token);
+        $("status-msg").textContent = "ورود موفق.";
+        setLoggedIn(true);
+      } catch (e) {
+        pendingToken = "";
+        $("status-msg").textContent = "ورود ناموفق: " + e.message;
+      }
+    }
+
+    document.querySelectorAll("#tabs button").forEach(btn => {
+      btn.onclick = () => {
+        document.querySelectorAll("#tabs button").forEach(b => b.classList.remove("active"));
+        document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
+        btn.classList.add("active");
+        $("view-" + btn.dataset.view).classList.add("active");
+      };
+    });
+
+    $("btn-login").onclick = login;
+    $("btn-logout").onclick = () => {
+      setLoggedIn(false);
+      $("status-msg").textContent = "خارج شدید.";
+    };
+
+    $("btn-optimize").onclick = async () => {
+      try {
+        const body = {
+          reactor_temp_c: +$("opt-temp").value,
+          pressure_bar: +$("opt-p").value,
+          feed_flow_m3h: +$("opt-f").value,
+          unit_id: 1,
+          persist: true,
+        };
+        const res = await api("/optimize", { method: "POST", body: JSON.stringify(body) });
+        $("opt-out").textContent = JSON.stringify(res, null, 2);
+        renderRecommendation(res);
+      } catch (e) { $("opt-out").textContent = e.message; }
+    };
+
+    $("btn-whatif").onclick = async () => {
+      try {
+        const body = {
+          reactor_temp_c: +$("opt-temp").value,
+          current_pressure_bar: +$("opt-p").value,
+          current_feed_flow: +$("opt-f").value,
+          proposed_pressure_bar: +$("wi-p").value,
+          proposed_feed_flow: +$("wi-f").value,
+        };
+        const res = await api("/optimize/whatif", { method: "POST", body: JSON.stringify(body) });
+        $("opt-out").textContent = JSON.stringify(res, null, 2);
+      } catch (e) { $("opt-out").textContent = e.message; }
+    };
+
+    $("btn-apply").onclick = async () => {
+      try {
+        const res = await api("/optimize/apply", {
+          method: "POST",
+          body: JSON.stringify({ recommendation_id: +$("apply-id").value, operator_id: 1, run_whatif_first: true }),
+        });
+        $("opt-out").textContent = JSON.stringify(res, null, 2);
+      } catch (e) { $("opt-out").textContent = e.message; }
+    };
+
+    $("btn-feedback").onclick = async () => {
+      try {
+        const res = await api("/optimize/feedback", {
+          method: "POST",
+          body: JSON.stringify({
+            recommendation_id: +$("apply-id").value,
+            actual_efficiency: +$("fb-eff").value,
+            operator_id: 1,
+          }),
+        });
+        $("opt-out").textContent = JSON.stringify(res, null, 2);
+      } catch (e) { $("opt-out").textContent = e.message; }
+    };
+
+    $("btn-gen-report").onclick = async () => {
+      try {
+        await api("/reports/shift/generate?unit_id=1", { method: "POST" });
+        await loadReports();
+      } catch (e) { $("status-msg").textContent = e.message; }
+    };
+    $("btn-refresh-reports").onclick = loadReports;
+    $("btn-export-xlsx").onclick = async () => {
+      try { await downloadExport("xlsx"); } catch (e) { $("status-msg").textContent = e.message; }
+    };
+    $("btn-export-pdf").onclick = async () => {
+      try { await downloadExport("pdf"); } catch (e) { $("status-msg").textContent = e.message; }
+    };
+
+    $("btn-qr").onclick = async () => {
+      try {
+        const setup = await api("/auth/totp/setup", {
+          method: "POST",
+          body: JSON.stringify({ employee_code: $("emp").value, password: $("pwd").value }),
+        });
+        $("qr-box").innerHTML = `
+          <img alt="TOTP QR" src="data:image/png;base64,${setup.qr_code_png_base64}" />
+          <p class="secret">${setup.otp_secret || ""}</p>
+          <p style="color:var(--muted);font-size:0.8rem">${setup.instructions || ""}</p>`;
+      } catch (e) {
+        $("qr-box").textContent = "خطا: " + e.message;
+      }
+    };
+
+    if (token) {
+      $("status-msg").textContent = "نشست قبلی بازیابی شد.";
+      setLoggedIn(true);
+    }
+  </script>
+</body>
+</html>

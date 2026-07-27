@@ -1,0 +1,43 @@
+# ==========================================================================
+# نگاشت تگ‌های DCS/PLC به متغیرهای فرایندی برای هر واحد (FR-DATA-01/02)
+#
+# این فایل تنها یک بار در startup سرویس data-ingestion خوانده می‌شود.
+# برای اتصال به یک DCS واقعی، صرفاً کافی است:
+#   ۱. endpoint_url (OPC-UA) یا host/port (Modbus) را به آدرس واقعی سرور تغییر دهید
+#   ۲. مقادیر node_id / register را با Tag List واقعی DCS/PLC هماهنگ کنید
+# بدون نیاز به تغییر کد سرویس.
+# ==========================================================================
+
+units:
+  1:
+    name: "Olefin Unit 1"
+
+    opcua:
+      endpoint_url: "opc.tcp://opcua-test-server:4840/khalij/olefin1/"
+      nodes:
+        reactor_temp_c: "ns=2;s=Reactor.Temperature"
+        reactor_pressure_bar: "ns=2;s=Reactor.Pressure"
+        feed_flow_m3h: "ns=2;s=Feed.Flow"
+        tank_level_percent: "ns=2;s=Tank.Level"
+        ethylene_conc_percent: "ns=2;s=Gas.EthyleneConcentration"
+        compressor_rpm: "ns=2;s=Compressor.RPM"
+
+    modbus:
+      host: "modbus-test-server"
+      port: 5020
+      # آدرس رجیستر هولدینگ (Holding Register) برای هر متغیر
+      registers:
+        reactor_temp_c: 0
+        reactor_pressure_bar: 1
+        feed_flow_m3h: 2
+        tank_level_percent: 3
+        ethylene_conc_percent: 4
+        compressor_rpm: 5
+      # ضریب مقیاس برای تبدیل مقدار صحیح رجیستر (۱۶ بیتی) به مقدار اعشاری واقعی
+      scale:
+        reactor_temp_c: 0.1
+        reactor_pressure_bar: 0.1
+        feed_flow_m3h: 1.0
+        tank_level_percent: 0.1
+        ethylene_conc_percent: 0.1
+        compressor_rpm: 1.0

@@ -93,9 +93,26 @@ CREATE TABLE IF NOT EXISTS optimization_recommendations (
     recommended_value   DOUBLE PRECISION,
     expected_efficiency_gain DOUBLE PRECISION,
     model_run_id        VARCHAR(64), -- MLflow run id
+    recommendation_json JSONB,                         -- توصیه چندمتغیره کامل (فاز ۴)
+    expected_efficiency DOUBLE PRECISION,              -- راندمان تخمینی پس از اعمال
+    actual_efficiency   DOUBLE PRECISION,              -- راندمان واقعی اندازه‌گیری‌شده
+    efficiency_error    DOUBLE PRECISION,              -- actual - expected
+    whatif_snapshot     JSONB,                         -- نتیجه What-if قبل از اعمال
+    feedback_at         TIMESTAMPTZ,
     created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
     applied              BOOLEAN NOT NULL DEFAULT FALSE,
     applied_by           INTEGER REFERENCES operators(id)
+);
+
+-- رویدادهای حلقه بسته بهینه‌سازی (فاز ۴)
+CREATE TABLE IF NOT EXISTS optimization_feedback_events (
+    id                  BIGSERIAL PRIMARY KEY,
+    recommendation_id   BIGINT REFERENCES optimization_recommendations(id) ON DELETE CASCADE,
+    unit_id             INTEGER,
+    event_type          VARCHAR(32) NOT NULL,  -- applied | feedback | rejected
+    payload             JSONB,
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    operator_id         INTEGER REFERENCES operators(id)
 );
 
 -- ---------------------------------------------------------------------
@@ -112,6 +129,47 @@ VALUES (
     'morning'
 )
 ON CONFLICT (employee_code) DO NOTHING;
+
+-- نقش‌های نمونه برای تست RBAC فاز ۶ (همان رمز ChangeMe123!)
+INSERT INTO operators (employee_code, full_name, password_hash, otp_secret, role, shift)
+VALUES
+    (
+        'demo-operator',
+        'اپراتور خط',
+        '$2b$12$dTFM.AIRyaHlm8xioKQLnegLWMo1PT8AwDuuZHNO6SWHTD5QFUyyS',
+        '3MYXLVCKBIRJUTD6',
+        'operator',
+        'morning'
+    ),
+    (
+        'demo-supervisor',
+        'سرپرست شیفت',
+        '$2b$12$dTFM.AIRyaHlm8xioKQLnegLWMo1PT8AwDuuZHNO6SWHTD5QFUyyS',
+        '3MYXLVCKBIRJUTD6',
+        'supervisor',
+        'evening'
+    )
+ON CONFLICT (employee_code) DO NOTHING;
+
+-- ---------------------------------------------------------------------
+-- Audit Trail امنیتی (فاز ۶)
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS audit_events (
+    id              BIGSERIAL PRIMARY KEY,
+    event_type      VARCHAR(64) NOT NULL,
+    actor_code      VARCHAR(32),
+    actor_role      VARCHAR(32),
+    resource        VARCHAR(128),
+    action          VARCHAR(64) NOT NULL,
+    success         BOOLEAN NOT NULL DEFAULT TRUE,
+    ip_address      VARCHAR(64),
+    user_agent      TEXT,
+    details         JSONB,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_audit_created_at ON audit_events (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_audit_actor ON audit_events (actor_code);
+CREATE INDEX IF NOT EXISTS idx_audit_type ON audit_events (event_type);
 
 -- ---------------------------------------------------------------------
 -- داده اولیه نمونه (واحد و سنسورهای پیش‌فرض بر اساس FR-DATA-02)

@@ -1,0 +1,42 @@
+# ==========================================================================
+# فاز ۱۰ — Compose پایلوت (تک‌واحد، منابع محدود، مشاهده‌پذیری اختیاری)
+# اجرا:
+#   docker compose -f docker-compose.yml -f docker-compose.pilot.yml up -d
+# ==========================================================================
+
+services:
+  data-ingestion:
+    environment:
+      DATA_SOURCE_MODE: ${PILOT_DATA_SOURCE_MODE:-simulator}
+      DATA_UNIT_ID: "1"
+      DATA_UNIT_IDS: "1"
+      INGESTION_SHARD_COUNT: "1"
+      INGESTION_INTERVAL_S: "1.0"
+      ENVIRONMENT: pilot
+      LOG_FORMAT: json
+
+  prediction:
+    environment:
+      PREDICTION_LATENCY_BUDGET_MS: "2000"
+      CRITICAL_DEVIATION_PERCENT: "5.0"
+      REACTOR_NOMINAL_TEMP_C: "250.0"
+      ENVIRONMENT: pilot
+      LOG_FORMAT: json
+
+  api-gateway:
+    environment:
+      ENVIRONMENT: pilot
+      LOG_FORMAT: json
+      CORS_ALLOW_ORIGINS: ${PILOT_CORS_ORIGINS:-http://localhost:8000,https://localhost}
+      TWO_FACTOR_REQUIRED: "true"
+      ENFORCE_PRODUCTION_SECRETS: ${PILOT_ENFORCE_SECRETS:-false}
+
+  preprocessing:
+    environment:
+      ENVIRONMENT: pilot
+      LOG_FORMAT: json
+
+  alerting:
+    environment:
+      ENVIRONMENT: pilot
+      LOG_FORMAT: json

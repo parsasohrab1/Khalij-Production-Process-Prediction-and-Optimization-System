@@ -1,0 +1,127 @@
+# ==========================================================================
+# فاز ۸ — مشاهده‌پذیری (Prometheus / Grafana / Loki / Tempo)
+# اجرا:
+#   docker compose -f docker-compose.yml -f docker-compose.observability.yml --profile observability up -d
+# یا:
+#   docker compose --profile observability -f docker-compose.yml -f docker-compose.observability.yml up -d
+#
+# UIها:
+#   Grafana    http://localhost:3000  (admin / admin)
+#   Prometheus http://localhost:9090
+#   Tempo      http://localhost:3200
+#   Loki       http://localhost:3100
+# ==========================================================================
+
+services:
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    container_name: khalij-prometheus
+    profiles: ["observability"]
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --web.enable-lifecycle
+    volumes:
+      - ./infra/observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./infra/observability/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "9090:9090"
+    networks: [khalij-net]
+
+  grafana:
+    image: grafana/grafana:11.2.0
+    container_name: khalij-grafana
+    profiles: ["observability"]
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+    volumes:
+      - ./infra/observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infra/observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+      - loki
+      - tempo
+    networks: [khalij-net]
+
+  loki:
+    image: grafana/loki:3.1.1
+    container_name: khalij-loki
+    profiles: ["observability"]
+    restart: unless-stopped
+    command: ["-config.file=/etc/loki/loki-config.yml"]
+    volumes:
+      - ./infra/observability/loki/loki-config.yml:/etc/loki/loki-config.yml:ro
+      - loki-data:/loki
+    ports:
+      - "3100:3100"
+    networks: [khalij-net]
+
+  promtail:
+    image: grafana/promtail:3.1.1
+    container_name: khalij-promtail
+    profiles: ["observability"]
+    restart: unless-stopped
+    command: ["-config.file=/etc/promtail/promtail-config.yml"]
+    volumes:
+      - ./infra/observability/promtail/promtail-config.yml:/etc/promtail/promtail-config.yml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      - loki
+    networks: [khalij-net]
+
+  tempo:
+    image: grafana/tempo:2.5.0
+    container_name: khalij-tempo
+    profiles: ["observability"]
+    restart: unless-stopped
+    command: ["-config.file=/etc/tempo/tempo.yaml"]
+    volumes:
+      - ./infra/observability/tempo/tempo.yaml:/etc/tempo/tempo.yaml:ro
+      - tempo-data:/tmp/tempo
+    ports:
+      - "3200:3200"
+      - "4317:4317"
+      - "4318:4318"
+    networks: [khalij-net]
+
+  # فعال‌سازی OTEL برای سرویس‌های اپلیکیشن وقتی profile observability روشن است
+  api-gateway:
+    environment:
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://tempo:4318}
+      LOG_FORMAT: ${LOG_FORMAT:-json}
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+
+  data-ingestion:
+    environment:
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://tempo:4318}
+      LOG_FORMAT: ${LOG_FORMAT:-json}
+
+  preprocessing:
+    environment:
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://tempo:4318}
+      LOG_FORMAT: ${LOG_FORMAT:-json}
+
+  prediction:
+    environment:
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://tempo:4318}
+      LOG_FORMAT: ${LOG_FORMAT:-json}
+
+  alerting:
+    environment:
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://tempo:4318}
+      LOG_FORMAT: ${LOG_FORMAT:-json}
+
+volumes:
+  prometheus-data:
+  grafana-data:
+  loki-data:
+  tempo-data:

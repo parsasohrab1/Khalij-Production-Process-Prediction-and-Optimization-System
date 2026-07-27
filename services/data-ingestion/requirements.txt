@@ -8,3 +8,10 @@ asyncua==1.1.5
 pymodbus==3.6.9
 numpy==1.26.4
 python-dotenv==1.0.1
+tenacity==8.5.0
+PyYAML==6.0.1
+prometheus-client==0.20.0
+opentelemetry-api==1.27.0
+opentelemetry-sdk==1.27.0
+opentelemetry-exporter-otlp-proto-http==1.27.0
+opentelemetry-instrumentation-fastapi==0.48b0
