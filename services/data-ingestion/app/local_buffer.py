@@ -1,7 +1,7 @@
-"""بافر محلی برای ذخیره داده هنگام قطع ارتباط با Kafka (FR-DATA-03).
+"""Local buffer for storing data when communication with Kafka is lost (FR-DATA-03).
 
-پیام‌هایی که ارسال آن‌ها ناموفق باشد در یک فایل SQLite محلی نگهداری می‌شوند
-و به محض اتصال مجدد، به‌صورت FIFO دوباره ارسال می‌شوند.
+Messages that fail to send are kept in a local SQLite file
+and are resent in FIFO order as soon as the connection is restored.
 """
 from __future__ import annotations
 
@@ -35,7 +35,7 @@ class LocalBuffer:
             (topic, json.dumps(payload)),
         )
         self._conn.commit()
-        logger.warning("پیام در بافر محلی ذخیره شد (ارتباط با Kafka برقرار نیست).")
+        logger.warning("Message stored in the local buffer (no connection to Kafka).")
 
     def drain(self, max_batch: int = 500):
         cursor = self._conn.execute(

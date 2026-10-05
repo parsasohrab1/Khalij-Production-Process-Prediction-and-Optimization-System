@@ -1,13 +1,13 @@
 # Khalij-Production-Process-Prediction-and-Optimization-System
-برای محصول **"سیستم پیش‌بینی‌کننده و بهینه‌ساز فرایند تولید"** در پتروشیمی، یک مستند **SRS (Software Requirements Specification)** جامع و سپس کد تولید **۱۰,۰۰۰ داده سنتتیک (شبیه‌سازی‌شده) به ازای هر متغیر** با زمان‌بندی ثانیه‌ای ارائه می‌شود.
+For the product **"Predictive and Optimizing System for Production Processes"** in petrochemicals, a comprehensive **SRS (Software Requirements Specification)** document is provided, followed by code that generates **10,000 synthetic (simulated) data points per variable** with per-second timing.
 
 ---
 
-## 🏗️ زیرساخت پیاده‌سازی‌شده (Implemented Infrastructure)
+## 🏗️ Implemented Infrastructure
 
-بر اساس معماری فنی بخش ۵ این سند، زیرساخت کامل پروژه به‌صورت مجموعه‌ای از میکروسرویس‌های FastAPI به همراه تمام سرویس‌های داده مورد نیاز (InfluxDB، PostgreSQL، Redis، Kafka، MLflow) و از طریق Docker Compose پیاده‌سازی شده است.
+Based on the technical architecture in section 5 of this document, the complete project infrastructure is implemented as a set of FastAPI microservices together with all required data services (InfluxDB, PostgreSQL, Redis, Kafka, MLflow) via Docker Compose.
 
-### نقشه معماری
+### Architecture map
 
 ```
                          ┌──────────────────┐
@@ -36,155 +36,155 @@
               └────────────┘                               └────────────┘
 ```
 
-جریان داده: `Data Ingestion` هر ثانیه یک رکورد سنسور (شبیه‌سازی‌شده یا از OPC-UA/Modbus) به Kafka (`raw-sensor-data`) و InfluxDB خام ارسال می‌کند → `Preprocessing` مصرف کرده، پرت‌ها را اصلاح، مقادیر گم‌شده را درون‌یابی و نرمال‌سازی می‌کند و در `processed-sensor-data` منتشر می‌کند → `Prediction` دمای ۶۰ ثانیه آینده را پیش‌بینی، در صورت انحراف بحرانی هشدار به `process-alerts` می‌فرستد و توصیه دبی خوراک بهینه را در PostgreSQL ثبت می‌کند → `Alerting` هشدارها را از طریق تلگرام/ایمیل ارسال، در PostgreSQL لاگ و برای نمایش در اتاق کنترل در Redis کش می‌کند.
+Data flow: `Data Ingestion` sends one sensor record per second (simulated or from OPC-UA/Modbus) to Kafka (`raw-sensor-data`) and raw InfluxDB → `Preprocessing` consumes it, corrects outliers, interpolates missing values, normalizes, and publishes to `processed-sensor-data` → `Prediction` forecasts the temperature 60 seconds ahead, sends an alert to `process-alerts` on critical deviation, and records the optimal feed-flow recommendation in PostgreSQL → `Alerting` sends alerts via Telegram/email, logs them in PostgreSQL, and caches them in Redis for display in the control room.
 
-### ساختار پوشه‌ها
+### Folder Structure
 
-| مسیر | توضیح |
+| Path | Description |
 | :--- | :--- |
-| `shared/` | مدل‌های Pydantic، تنظیمات مشترک (`.env`)، ابزارهای Kafka |
-| `services/api-gateway/` | دروازه واحد API، احراز هویت دو مرحله‌ای (NFR-SEC-01)، داشبورد `/dashboard` (R-GEN-03) |
-| `services/data-ingestion/` | اتصال OPC-UA/Modbus، بافر محلی هنگام قطعی، Circuit Breaker (FR-DATA-01..03) |
-| `services/preprocessing/` | حذف پرت، درون‌یابی، نرمال‌سازی (FR-PRE-01..03) |
-| `services/prediction/` | پیش‌بینی دما با XGBoost/LSTM + توصیه‌گر تکاملی (FR-ML-01..03) |
-| `services/alerting/` | تلگرام/ایمیل، لاگ هشدار، گزارش خودکار شیفت (FR-ALERT + R-GEN-04) |
-| `infra/postgres/init.sql` | Schema اولیه PostgreSQL (اپراتورها، سنسورها، هشدارها، گزارش شیفت) |
-| `infra/mlflow/` | Dockerfile سرور MLflow |
-| `infra/nginx/` | Reverse proxy با TLS 1.3 (NFR-SEC-02) |
-| `shared/schema_registry.py` | Schema Registry سبک (فاز ۲) |
-| `shared/dlq.py` | ناشر Dead Letter Queue (فاز ۲) |
-| `shared/data_quality.py` | Expectation Suite کیفیت داده (فاز ۲) |
+| `shared/` | Pydantic models, shared settings (`.env`), Kafka utilities |
+| `services/api-gateway/` | Single API gateway, two-factor authentication (NFR-SEC-01), `/dashboard` dashboard (R-GEN-03) |
+| `services/data-ingestion/` | OPC-UA/Modbus connection, local buffer during outages, Circuit Breaker (FR-DATA-01..03) |
+| `services/preprocessing/` | Outlier removal, interpolation, normalization (FR-PRE-01..03) |
+| `services/prediction/` | Temperature prediction with XGBoost/LSTM + evolutionary recommender (FR-ML-01..03) |
+| `services/alerting/` | Telegram/email, alert log, automatic shift report (FR-ALERT + R-GEN-04) |
+| `infra/postgres/init.sql` | Initial PostgreSQL schema (operators, sensors, alerts, shift report) |
+| `infra/mlflow/` | MLflow server Dockerfile |
+| `infra/nginx/` | Reverse proxy with TLS 1.3 (NFR-SEC-02) |
+| `shared/schema_registry.py` | Lightweight Schema Registry (phase 2) |
+| `shared/dlq.py` | Dead Letter Queue publisher (phase 2) |
+| `shared/data_quality.py` | Data quality Expectation Suite (phase 2) |
 | `infra/influxdb/` | Init bucket cold + Task downsampling |
-| `data/generate_synthetic_data.py` | تولید ۱۰,۰۰۰ رکورد داده سنتتیک برای هر متغیر |
-| `scripts/test_phase1.py` … `test_phase10.py` | تست‌های واحد فاز ۱ تا ۱۰ |
-| `config/pilot.yaml` / `docs/pilot/` | پیکربندی و Runbook پایلوت (فاز ۱۰) |
-| `docker-compose.pilot.yml` | پروفایل Compose پایلوت |
-| `infra/k8s/` | مانیفست‌های Kubernetes + overlays dev/pilot |
-| `docker-compose.yml` | زیرساخت کامل (+ `hardware-sim`, `kafka-init`, `influxdb-init`) |
+| `data/generate_synthetic_data.py` | Generate 10,000 synthetic records for each variable |
+| `scripts/test_phase1.py` … `test_phase10.py` | Unit tests for phases 1 to 10 |
+| `config/pilot.yaml` / `docs/pilot/` | Pilot configuration and Runbook (phase 10) |
+| `docker-compose.pilot.yml` | Pilot Compose profile |
+| `infra/k8s/` | Kubernetes manifests + dev/pilot overlays |
+| `docker-compose.yml` | Full infrastructure (+ `hardware-sim`, `kafka-init`, `influxdb-init`) |
 
-### راه‌اندازی سریع (Quick Start)
+### Quick Start
 
 ```bash
-# ۱. کپی فایل نمونه متغیرهای محیطی و ویرایش مقادیر حساس
+# 1. Copy the sample environment variables file and edit the sensitive values
 cp .env.example .env
 
-# ۲. بالا آوردن کامل زیرساخت
+# 2. Bring up the full infrastructure
 docker compose up --build -d
 
-# ۳. بررسی سلامت سرویس‌ها
+# 3. Check service health
 curl http://localhost:8000/health/services
 ```
 
-سرویس `data-ingestion` به‌صورت پیش‌فرض با یک شبیه‌ساز داخلی (`DATA_SOURCE_MODE=simulator`) کار می‌کند تا بدون نیاز به سخت‌افزار واقعی OPC-UA/Modbus، کل خط لوله (Ingestion → Kafka → Preprocessing → Prediction → Alerting) قابل تست باشد.
+The `data-ingestion` service works by default with a built-in simulator (`DATA_SOURCE_MODE=simulator`) so that the whole pipeline (Ingestion → Kafka → Preprocessing → Prediction → Alerting) can be tested without real OPC-UA/Modbus hardware.
 
-برای ورود به داشبورد (اپراتور دمو، رمز پیش‌فرض `ChangeMe123!`):
+To log in to the dashboard (demo operator, default password `ChangeMe123!`):
 
 ```bash
 curl -X POST http://localhost:8000/auth/login \
   -H "Content-Type: application/json" \
   -d '{"employee_code": "demo-admin", "password": "ChangeMe123!"}'
-# پاسخ شامل pending_token است؛ کد OTP را با ابزاری مانند Google Authenticator
-# روی رمز Base32 موجود در جدول operators (ستون otp_secret) تولید کنید.
+# The response includes pending_token; generate the OTP code with a tool such as Google Authenticator
+# from the Base32 secret in the operators table (otp_secret column).
 curl -X POST http://localhost:8000/auth/verify-otp \
   -H "Content-Type: application/json" \
-  -d '{"pending_token": "<pending_token>", "otp_code": "<کد ۶ رقمی>"}'
+  -d '{"pending_token": "<pending_token>", "otp_code": "<6-digit code>"}'
 ```
 
-⚠️ رمز عبور و راز OTP اپراتور دمو صرفاً برای محیط توسعه است؛ پیش از استقرار عملیاتی حذف/تغییر داده شود.
+⚠️ The demo operator's password and OTP secret are for the development environment only; remove/change them before operational deployment.
 
-### تولید داده سنتتیک برای تست/آموزش مدل
+### Generating synthetic data for testing/model training
 
 ```bash
 pip install -r data/requirements.txt
 python data/generate_synthetic_data.py --num-records 10000
 ```
 
-### متغیرهای محیطی کلیدی
+### Key environment variables
 
-فایل `.env.example` تمام متغیرهای مورد نیاز (اتصال InfluxDB/PostgreSQL/Redis/Kafka/MLflow، آستانه‌های هشدار، تنظیمات تلگرام/SMTP، کلید JWT و کلید AES-256) را با توضیح فارسی شامل می‌شود.
+The `.env.example` file includes all required variables (InfluxDB/PostgreSQL/Redis/Kafka/MLflow connections, alert thresholds, Telegram/SMTP settings, JWT key and AES-256 key) with explanations.
 
-### داشبورد مانیتورینگ (R-GEN-03 / فاز ۵)
+### Monitoring dashboard (R-GEN-03 / phase 5)
 
-پس از بالا آوردن سرویس‌ها:
+After bringing up the services:
 
 - HTTP: [http://localhost:8000/dashboard](http://localhost:8000/dashboard)
-- HTTPS با TLS 1.3: [https://localhost/dashboard](https://localhost/dashboard)
+- HTTPS with TLS 1.3: [https://localhost/dashboard](https://localhost/dashboard)
 
-ورود با اپراتور دمو + OTP (NFR-SEC-01). داشبورد شامل تب‌های مانیتورینگ زنده (WebSocket)، اتاق کنترل، بهینه‌سازی، گزارش شیفت (PDF/Excel) و ثبت QR برای 2FA است.
+Log in with the demo operator + OTP (NFR-SEC-01). The dashboard includes live monitoring tabs (WebSocket), control room, optimization, shift report (PDF/Excel) and QR registration for 2FA.
 
-### تست اتصال سخت‌افزاری (فاز ۱ / FR-DATA-01)
+### Hardware connection test (phase 1 / FR-DATA-01)
 
 ```bash
-# بالا آوردن شبیه‌ساز OPC-UA/Modbus + بقیه سرویس‌ها
+# Bring up the OPC-UA/Modbus simulator + the other services
 docker compose --profile hardware-sim up --build -d
 
-# سوییچ data-ingestion به OPC-UA (در .env)
+# Switch data-ingestion to OPC-UA (in .env)
 # DATA_SOURCE_MODE=opcua
 docker compose up -d data-ingestion
 
-# یا تست واحدهای فاز ۱ بدون Docker
+# Or unit tests of phase 1 without Docker
 pip install cryptography PyYAML
 python scripts/test_phase1.py
 ```
 
-### فاز ۲ — خط لوله داده و کیفیت داده
+### Phase 2 — Data pipeline and data quality
 
-| قابلیت | پیاده‌سازی |
+| Capability | Implementation |
 | :--- | :--- |
-| Schema Registry | `shared/schema_registry.py` — اعتبارسنجی Pydantic + نسخه‌بندی |
-| Dead Letter Queue | topicهای `raw-sensor-data-dlq` و `processed-sensor-data-dlq` |
-| Retention / Downsampling | bucket hot=`30d` + cold=`process_sensors_1m` با retention ۵ ساله؛ Task هر ۱ دقیقه |
-| Data Quality | `shared/data_quality.py` + CLI در `services/data-quality/cli.py` |
+| Schema Registry | `shared/schema_registry.py` — Pydantic validation + versioning |
+| Dead Letter Queue | `raw-sensor-data-dlq` and `processed-sensor-data-dlq` topics |
+| Retention / Downsampling | hot bucket=`30d` + cold=`process_sensors_1m` with 5-year retention; Task every 1 minute |
+| Data Quality | `shared/data_quality.py` + CLI in `services/data-quality/cli.py` |
 
 ```bash
-# تست واحد فاز ۲
+# Phase 2 unit test
 python scripts/test_phase2.py
 
-# اجرای Expectation Suite روی CSV سنتتیک
+# Run the Expectation Suite on synthetic CSV
 python data/generate_synthetic_data.py --num-records 1000 --output data/sample.csv
 pip install -r services/data-quality/requirements.txt
 python -m services.data_quality.cli --csv data/sample.csv --limit 1000
 
-# آمار کیفیت از API (پس از login)
+# Quality statistics from the API (after login)
 curl -H "Authorization: Bearer <token>" http://localhost:8000/quality/stats
 ```
 
-### فاز ۳ — مدل‌سازی و MLOps واقعی
+### Phase 3 — Real modeling and MLOps
 
-| قابلیت | پیاده‌سازی |
+| Capability | Implementation |
 | :--- | :--- |
-| Batch training + backtesting | `training_pipeline.py` — تقسیم زمانی، MAE/RMSE/MAPE |
-| مقایسه مدل‌ها | XGBoost vs MLP (و LSTM در صورت نصب TensorFlow) |
+| Batch training + backtesting | `training_pipeline.py` — temporal split, MAE/RMSE/MAPE |
+| Model comparison | XGBoost vs MLP (and LSTM if TensorFlow is installed) |
 | MLflow Registry | Experiment + Staging → Production |
-| Drift Detection | PSI روی دمای راکتور → Re-training خودکار |
+| Drift Detection | PSI on reactor temperature → automatic Re-training |
 
 ```bash
-# تست واحد فاز ۳
+# Phase 3 unit test
 python scripts/test_phase3.py
 
-# آموزش آفلاین از CSV
+# Offline training from CSV
 python data/generate_synthetic_data.py --num-records 5000 --output data/train.csv
 python scripts/train_model.py --csv data/train.csv --mlflow-uri http://localhost:5000
 
-# APIها
+# APIs
 curl -X POST http://localhost:8003/train
 curl http://localhost:8003/models/comparison
 curl -X POST http://localhost:8003/drift/check
 ```
 
-### فاز ۴ — بهینه‌سازی پیشرفته و محدودیت‌های ایمنی
+### Phase 4 — Advanced optimization and safety constraints
 
-| قابلیت | پیاده‌سازی |
+| Capability | Implementation |
 | :--- | :--- |
-| بهینه‌سازی چندمتغیره | دبی خوراک + فشار هم‌زمان (`MultiVariableEvolutionaryOptimizer`) |
-| Hard Constraints | محدوده ایمن، نرخ تغییر، قید ترکیبی P+T (`safety_constraints.py`) |
-| What-if | شبیه‌سازی پیش از اعمال (`/optimize/whatif`) |
-| حلقه بسته | اعمال توصیه → ثبت راندمان واقعی → خطای پیش‌بینی |
+| Multivariable optimization | Feed flow + pressure simultaneously (`MultiVariableEvolutionaryOptimizer`) |
+| Hard Constraints | Safe range, rate of change, combined P+T constraint (`safety_constraints.py`) |
+| What-if | Simulation before applying (`/optimize/whatif`) |
+| Closed loop | Apply recommendation → record actual efficiency → prediction error |
 
 ```bash
 python scripts/test_phase4.py
 
-# بهینه‌سازی چندمتغیره
+# Multivariable optimization
 curl -X POST http://localhost:8003/optimize \
   -H "Content-Type: application/json" \
   -d '{"reactor_temp_c":250,"pressure_bar":28,"feed_flow_m3h":380}'
@@ -194,106 +194,106 @@ curl -X POST http://localhost:8003/optimize/whatif \
   -H "Content-Type: application/json" \
   -d '{"reactor_temp_c":250,"current_pressure_bar":28,"current_feed_flow":380,"proposed_pressure_bar":25,"proposed_feed_flow":320}'
 
-# اعمال + بازخورد
+# Apply + feedback
 curl -X POST http://localhost:8003/optimize/apply -H "Content-Type: application/json" \
   -d '{"recommendation_id":1,"operator_id":1}'
 curl -X POST http://localhost:8003/optimize/feedback -H "Content-Type: application/json" \
   -d '{"recommendation_id":1,"actual_efficiency":72.5}'
 ```
 
-### فاز ۵ — داشبورد و تجربه کاربری اپراتور
+### Phase 5 — Dashboard and operator experience
 
-| قابلیت | پیاده‌سازی |
+| Capability | Implementation |
 | :--- | :--- |
-| WebSocket زنده | `GET/WS /ws/live?token=...` — سنسور، پیش‌بینی، توصیه، هشدار |
-| داشبورد چندصفحه‌ای | مانیتورینگ / اتاق کنترل / بهینه‌سازی / گزارش / امنیت 2FA |
-| ثبت TOTP با QR | `POST /auth/totp/setup` + تصویر PNG Base64 |
-| خروجی گزارش شیفت | `GET /reports/shift/export?format=pdf\|xlsx` (R-GEN-04) |
+| Live WebSocket | `GET/WS /ws/live?token=...` — sensor, prediction, recommendation, alert |
+| Multi-page dashboard | Monitoring / control room / optimization / report / 2FA security |
+| TOTP registration with QR | `POST /auth/totp/setup` + Base64 PNG image |
+| Shift report export | `GET /reports/shift/export?format=pdf\|xlsx` (R-GEN-04) |
 
 ```bash
-# تست واحد فاز ۵
+# Phase 5 unit test
 pip install qrcode[pil] openpyxl reportlab pyotp python-jose
 python scripts/test_phase5.py
 
-# داشبورد
+# Dashboard
 # http://localhost:8000/dashboard
 
-# WebSocket (پس از login)
+# WebSocket (after login)
 # ws://localhost:8000/ws/live?token=<access_token>&unit_id=1
 
-# QR برای Authenticator
+# QR for Authenticator
 curl -X POST http://localhost:8000/auth/totp/setup \
   -H "Content-Type: application/json" \
   -d '{"employee_code":"demo-admin","password":"ChangeMe123!"}'
 
-# خروجی Excel / PDF گزارش شیفت
+# Excel / PDF export of the shift report
 curl -H "Authorization: Bearer <token>" \
   "http://localhost:8000/reports/shift/export?format=xlsx" -o shift.xlsx
 curl -H "Authorization: Bearer <token>" \
   "http://localhost:8000/reports/shift/export?format=pdf" -o shift.pdf
 ```
 
-### فاز ۶ — امنیت و سخت‌سازی
+### Phase 6 — Security and hardening
 
-| قابلیت | پیاده‌سازی |
+| Capability | Implementation |
 | :--- | :--- |
-| RBAC | `operator` < `supervisor` < `admin` — apply/export/train محدود شده |
-| قفل حساب | پس از ۵ ورود ناموفق، ۹۰۰ث قفل (`LOGIN_*`) |
-| Rate limit | Redis روی login/API + `limit_req` در nginx |
-| Audit trail | جدول `audit_events` + `GET /security/audit` (admin) |
-| Logout / ابطال توکن | `POST /auth/logout` + blacklist jti در Redis |
-| سیاست رمز | `POST /auth/change-password` + قوانین پیچیدگی |
-| هدرهای امنیتی | CSP / HSTS / X-Frame-Options در Gateway و nginx |
-| CORS محدود | `CORS_ALLOW_ORIGINS` |
-| کلید داخلی سرویس‌ها | `INTERNAL_API_KEY` → هدر `X-Internal-Api-Key` |
-| Secrets در production | `ENFORCE_PRODUCTION_SECRETS` / `ENVIRONMENT=production` |
+| RBAC | `operator` < `supervisor` < `admin` — apply/export/train restricted |
+| Account lockout | After 5 failed logins, locked for 900s (`LOGIN_*`) |
+| Rate limit | Redis on login/API + `limit_req` in nginx |
+| Audit trail | `audit_events` table + `GET /security/audit` (admin) |
+| Logout / token revocation | `POST /auth/logout` + jti blacklist in Redis |
+| Password policy | `POST /auth/change-password` + complexity rules |
+| Security headers | CSP / HSTS / X-Frame-Options in Gateway and nginx |
+| Restricted CORS | `CORS_ALLOW_ORIGINS` |
+| Internal service key | `INTERNAL_API_KEY` → header `X-Internal-Api-Key` |
+| Secrets in production | `ENFORCE_PRODUCTION_SECRETS` / `ENVIRONMENT=production` |
 
 ```bash
 python scripts/test_phase6.py
 
-# وضعیت امنیتی (admin)
+# Security status (admin)
 curl -H "Authorization: Bearer <token>" http://localhost:8000/security/status
 
-# لاگ audit
+# Audit log
 curl -H "Authorization: Bearer <token>" http://localhost:8000/security/audit?limit=20
 ```
 
-نقش‌های دمو (رمز `ChangeMe123!` + همان OTP secret): `demo-admin` / `demo-supervisor` / `demo-operator`
+Demo roles (password `ChangeMe123!` + the same OTP secret): `demo-admin` / `demo-supervisor` / `demo-operator`
 
-### فاز ۷ — مقیاس‌پذیری و کارایی
+### Phase 7 — Scalability and performance
 
-| قابلیت | پیاده‌سازی |
+| Capability | Implementation |
 | :--- | :--- |
-| شاردینگ واحدها | `DATA_UNIT_IDS` + `INGESTION_SHARD_COUNT` / `SHARD_ID` |
-| Kafka پرتوان | compression lz4، linger/batch، پارتیشن پیش‌فرض ۱۲ |
+| Unit sharding | `DATA_UNIT_IDS` + `INGESTION_SHARD_COUNT` / `SHARD_ID` |
+| High-throughput Kafka | lz4 compression, linger/batch, default 12 partitions |
 | Influx batch | `InfluxRawWriter.write_batch` + async WriteOptions |
-| بک‌پرشر | توقف موقت ingestion وقتی بافر محلی پر است |
-| بودجه تأخیر | `LatencyTracker` + `/metrics/latency` (NFR-PER-01 <۲ث) |
-| Liveness/Readiness | `/health/live` و `/health/ready` روی سرویس‌ها |
+| Backpressure | Temporary ingestion pause when the local buffer is full |
+| Latency budget | `LatencyTracker` + `/metrics/latency` (NFR-PER-01 <2s) |
+| Liveness/Readiness | `/health/live` and `/health/ready` on services |
 | Scale compose | `docker-compose.scale.yml` |
 
 ```bash
 python scripts/test_phase7.py
 python scripts/load_test_scale.py --units 1000 --seconds 3
 
-# مقیاس افقی (مثال ۳ ingestion + ۲ preprocessing + ۲ prediction)
+# Horizontal scale (example 3 ingestion + 2 preprocessing + 2 prediction)
 docker compose -f docker-compose.yml -f docker-compose.scale.yml up -d \
   --scale data-ingestion=3 --scale preprocessing=2 --scale prediction=2
 
-# متریک تأخیر پیش‌بینی
+# Prediction latency metric
 curl -H "Authorization: Bearer <token>" http://localhost:8000/metrics/latency
 ```
 
-برای نزدیک شدن به هدف ۵۰٬۰۰۰ سنسور: `DATA_UNIT_IDS=1-50000`، افزایش `KAFKA_PARTITIONS`، و scale روی ingestion/preprocessing/prediction.
+To approach the 50,000-sensor target: `DATA_UNIT_IDS=1-50000`, increase `KAFKA_PARTITIONS`, and scale ingestion/preprocessing/prediction.
 
-### فاز ۸ — مشاهده‌پذیری و Uptime (NFR-PER-02)
+### Phase 8 — Observability and Uptime (NFR-PER-02)
 
-| قابلیت | پیاده‌سازی |
+| Capability | Implementation |
 | :--- | :--- |
-| Prometheus metrics | `/metrics` روی همه سرویس‌ها + `shared/metrics.py` |
+| Prometheus metrics | `/metrics` on all services + `shared/metrics.py` |
 | Grafana dashboard | `infra/observability/grafana/dashboards/khalij-pos-overview.json` |
-| Loki + Promtail | جمع‌آوری لاگ JSON کانتینرها |
-| Tempo (OTLP) | tracing توزیع‌شده با `OTEL_EXPORTER_OTLP_ENDPOINT` |
+| Tempo (OTLP) | Distributed tracing with `OTEL_EXPORTER_OTLP_ENDPOINT` |
+| Tempo (OTLP) | Distributed tracing with `OTEL_EXPORTER_OTLP_ENDPOINT` |
 | Alert rules | ServiceDown / HighErrorRate / HighPredictionLatency / ErrorBudgetBurn |
 | SLO helper | `shared/slo.py` + `GET /observability/slo` |
 
@@ -301,7 +301,7 @@ curl -H "Authorization: Bearer <token>" http://localhost:8000/metrics/latency
 pip install prometheus-client httpx
 python scripts/test_phase8.py
 
-# استک مشاهده‌پذیری
+# Observability stack
 docker compose -f docker-compose.yml -f docker-compose.observability.yml --profile observability up -d
 
 # UI
@@ -313,46 +313,46 @@ curl -H "Authorization: Bearer <token>" http://localhost:8000/observability/stat
 curl -H "Authorization: Bearer <token>" "http://localhost:8000/observability/slo?downtime_seconds=30"
 ```
 
-بودجه خطای هفتگی ۹۹.۹۹٪ حدود **۶۰.۵ ثانیه** downtime است؛ هشدار `ServiceDown` پس از ۱ دقیقه قطعی فعال می‌شود.
+A weekly error budget of 99.99% is about **60.5 seconds** of downtime; the `ServiceDown` alert fires after 1 minute of outage.
 
-### فاز ۹ — استقرار Kubernetes
+### Phase 9 — Kubernetes deployment
 
-| قابلیت | پیاده‌سازی |
+| Capability | Implementation |
 | :--- | :--- |
 | Kustomize | `infra/k8s/base` + overlay `dev` |
-| Apps | Deployment/Service/PDB برای ۵ میکروسرویس |
+| Apps | Deployment/Service/PDB for 5 microservices |
 | Infra | Postgres / Redis / Kafka / InfluxDB |
 | Probes | `/health/live` + `/health/ready` |
-| HPA | مقیاس خودکار روی CPU |
+| HPA | Automatic scaling on CPU |
 | Ingress + TLS | `pos.khalij.local` + NetworkPolicy |
-| Observability | Prometheus با kubernetes pod SD |
+| Observability | Prometheus with kubernetes pod SD |
 | Deploy | `scripts/deploy-k8s.sh` / `.ps1` |
 
 ```bash
 pip install PyYAML
 python scripts/test_phase9.py
 
-# استقرار (نیاز به کلاستر + docker)
+# Deployment (requires a cluster + docker)
 ./scripts/deploy-k8s.sh dev
-# یا
+# or
 .\scripts\deploy-k8s.ps1 -Overlay dev
 
 kubectl apply -k infra/k8s/base
 kubectl -n khalij-pos get pods,svc,ingress,hpa
 ```
 
-جزئیات: [`infra/k8s/README.md`](infra/k8s/README.md)
+Details: [`infra/k8s/README.md`](infra/k8s/README.md)
 
-### فاز ۱۰ — پایلوت عملیاتی (Olefin Unit 1)
+### Phase 10 — Operational pilot (Olefin Unit 1)
 
-| قابلیت | پیاده‌سازی |
+| Capability | Implementation |
 | :--- | :--- |
-| پیکربندی پایلوت | `config/pilot.yaml` (حالت shadow/assisted، ACها) |
-| Compose پایلوت | `docker-compose.pilot.yml` |
+| Pilot configuration | `config/pilot.yaml` (shadow/assisted mode, ACs) |
+| Pilot Compose | `docker-compose.pilot.yml` |
 | K8s overlay | `infra/k8s/overlays/pilot` → host `pilot.pos.khalij.local` |
 | Runbook / UAT | `docs/pilot/RUNBOOK.md`, `ACCEPTANCE.md`, `REPORT_TEMPLATE.md` |
 | Readiness gate | `scripts/pilot_readiness.py` |
-| Smoke test | `scripts/pilot_smoke.py` (--offline یا --base-url) |
+| Smoke test | `scripts/pilot_smoke.py` (--offline or --base-url) |
 
 ```bash
 pip install PyYAML
@@ -360,7 +360,7 @@ python scripts/test_phase10.py
 python scripts/pilot_readiness.py
 python scripts/pilot_smoke.py --offline
 
-# استقرار پایلوت محلی
+# Local pilot deployment
 docker compose -f docker-compose.yml -f docker-compose.pilot.yml up -d --build
 python scripts/pilot_smoke.py --base-url http://localhost:8000
 
@@ -368,96 +368,96 @@ python scripts/pilot_smoke.py --base-url http://localhost:8000
 kubectl apply -k infra/k8s/overlays/pilot
 ```
 
-اعمال خودکار به DCS تا امضای ایمنی **غیرفعال** است (`auto_apply_setpoints`).
+Automatic application to the DCS is **disabled** until safety sign-off (`auto_apply_setpoints`).
 
-### ماتریس پوشش نیازمندی‌های SRS
+### SRS requirements coverage matrix
 
-| شناسه | نیاز | وضعیت پیاده‌سازی |
+| ID | Requirement | Implementation status |
 | :--- | :--- | :--- |
-| R-GEN-01 | دریافت ۱ رکورد/ثانیه | ✅ `data-ingestion` + AC-01 پایلوت |
-| R-GEN-02 | Data Lake پنج‌ساله | ✅ InfluxDB retention=`1825d` |
-| R-GEN-03 | داشبورد مانیتورینگ + هشدارها | ✅ `/dashboard` + AC-07 |
-| R-GEN-04 | گزارش خودکار انرژی پایان شیفت | ✅ PDF/Excel + AC-08 |
-| FR-DATA-01 | OPC-UA / Modbus | ✅ کلاینت + `hardware_sim` + Circuit Breaker |
-| FR-DATA-02 | T/P/F/L/GC/RPM | ✅ نگاشت تگ و مدل داده |
-| FR-DATA-03 | بافر محلی هنگام قطعی | ✅ `LocalBuffer` + Fallback |
-| FR-PRE-01 | حذف پرت (IQR/Z-Score) | ✅ `preprocessing` |
-| FR-PRE-02 | درون‌یابی خطی NaN | ✅ `preprocessing` |
-| FR-PRE-03 | نرمال‌سازی Min-Max | ✅ `preprocessing` |
-| FR-ML-01 | پیش‌بینی دما ۶۰ثانیه (LSTM/XGBoost) | ✅ + AC-02 پایلوت |
-| FR-ML-02 | هشدار Critical در انحراف >۵٪ | ✅ + AC-03 |
-| FR-ML-03 | توصیه‌گر تکاملی دبی خوراک | ✅ + AC-04 (بدون auto-apply) |
-| FR-ALERT-01 | تلگرام / ایمیل / اتاق کنترل | ✅ `alerting` + Redis |
-| FR-ALERT-02 | لاگ هشدار + اپراتور پاسخ‌دهنده | ✅ PostgreSQL `alerts` |
-| NFR-SEC-01 | احراز هویت دو مرحله‌ای | ✅ + AC-05 |
+| R-GEN-01 | Ingest 1 record/second | ✅ `data-ingestion` + pilot AC-01 |
+| R-GEN-02 | Five-year Data Lake | ✅ InfluxDB retention=`1825d` |
+| R-GEN-03 | Monitoring dashboard + alerts | ✅ `/dashboard` + AC-07 |
+| R-GEN-04 | Automatic end-of-shift energy report | ✅ PDF/Excel + AC-08 |
+| FR-DATA-01 | OPC-UA / Modbus | ✅ client + `hardware_sim` + Circuit Breaker |
+| FR-DATA-02 | T/P/F/L/GC/RPM | ✅ Tag mapping and data model |
+| FR-DATA-03 | Local buffer during outage | ✅ `LocalBuffer` + Fallback |
+| FR-PRE-01 | Outlier removal (IQR/Z-Score) | ✅ `preprocessing` |
+| FR-PRE-02 | Linear interpolation of NaN | ✅ `preprocessing` |
+| FR-PRE-03 | Min-Max normalization | ✅ `preprocessing` |
+| FR-ML-01 | 60-second temperature prediction (LSTM/XGBoost) | ✅ + pilot AC-02 |
+| FR-ML-02 | Critical alert at >5% deviation | ✅ + AC-03 |
+| FR-ML-03 | Evolutionary feed-flow recommender | ✅ + AC-04 (no auto-apply) |
+| FR-ALERT-01 | Telegram / email / control room | ✅ `alerting` + Redis |
+| FR-ALERT-02 | Alert log + responding operator | ✅ PostgreSQL `alerts` |
+| NFR-SEC-01 | Two-factor authentication | ✅ + AC-05 |
 | NFR-SEC-02 | AES-256 / TLS 1.3 | ✅ crypto + tls-gateway + Ingress |
-| NFR-PER-01 | زمان پاسخ پیش‌بینی <۲ث | ✅ LatencyTracker + AC-02 |
-| NFR-SCL-01 | مقیاس افقی تا ۵۰k سنسور | ✅ شاردینگ + HPA |
-| NFR-PER-02 | Uptime ۹۹.۹۹٪ | ✅ SLO + AC-06 + پایلوت ۱۴روزه |
+| NFR-PER-01 | Prediction response time <2s | ✅ LatencyTracker + AC-02 |
+| NFR-SCL-01 | Horizontal scaling up to 50k sensors | ✅ Sharding + HPA |
+| NFR-PER-02 | Uptime 99.99% | ✅ SLO + AC-06 + 14-day pilot |
 
 ---
 
-## 📄 مستند SRS – سیستم بهینه‌سازی فرایند تولید (POS)
+## 📄 SRS Document – Production Process Optimization System (POS)
 
-### ۱. مقدمه (Introduction)
-**هدف:** توسعه سیستمی مبتنی بر داده‌کاوی و یادگیری ماشین برای پیش‌بینی ناهنجاری‌های فرایندی و ارائه تنظیمات بهینه به اپراتورها به‌منظور کاهش مصرف انرژی و افزایش راندمان واکنش‌های شیمیایی.
+### 1. Introduction
+**Purpose:** Develop a system based on data mining and machine learning to predict process anomalies and provide optimal settings to operators in order to reduce energy consumption and increase chemical reaction efficiency.
 
-**دامنه:** این سیستم روی واحدهای الفین و پلیمریزاسیون هلدینگ پیاده‌سازی شده و به سیستم DCS (کنترل توزیع‌شده) متصل می‌شود.
+**Scope:** This system is implemented on the holding's olefin and polymerization units and connects to the DCS (distributed control system).
 
-### ۲. نیازمندی‌های کلی (General Requirements)
-| شناسه | نیاز | اولویت |
+### 2. General Requirements
+| ID | Requirement | Priority |
 | :--- | :--- | :--- |
-| R-GEN-01 | دریافت داده‌های لحظه‌ای از سنسورها با نرخ حداقل ۱ رکورد در ثانیه | بالا |
-| R-GEN-02 | ذخیره‌سازی داده‌های خام در دیتاﻻیک (Data Lake) به مدت ۵ سال | بالا |
-| R-GEN-03 | ارائه داشبورد مانیتورینگ با قابلیت نمایش هشدارهای پیش‌بینی‌شده | بالا |
-| R-GEN-04 | تولید خودکار گزارش بهینه‌سازی انرژی در پایان هر شیفت | متوسط |
+| R-GEN-01 | Receive real-time data from sensors at a rate of at least 1 record per second | High |
+| R-GEN-02 | Store raw data in a Data Lake for 5 years | High |
+| R-GEN-03 | Provide a monitoring dashboard capable of displaying predicted alerts | High |
+| R-GEN-04 | Automatically generate an energy optimization report at the end of each shift | Medium |
 
-### ۳. نیازمندی‌های عملکردی (Functional Requirements)
+### 3. Functional Requirements
 
-#### ۳-۱. ماژول جمع‌آوری داده (Data Ingestion)
-- **FR-DATA-01:** سیستم باید قادر به اتصال به پروتکل‌های OPC-UA یا Modbus برای دریافت داده از سنسورها باشد.
-- **FR-DATA-02:** داده‌های دریافتی شامل: دما (T)، فشار (P)، دبی جریان (F)، سطح مخزن (L)، ترکیب گاز خروجی (GC) و دور کمپرسور (RPM) باشد.
-- **FR-DATA-03:** در صورت قطع ارتباط، داده‌ها در بافر محلی ذخیره و پس از وصل مجدد ارسال شوند.
+#### 3-1. Data Ingestion Module
+- **FR-DATA-01:** The system must be able to connect to OPC-UA or Modbus protocols to receive data from sensors.
+- **FR-DATA-02:** The received data must include: temperature (T), pressure (P), flow rate (F), tank level (L), output gas composition (GC) and compressor speed (RPM).
+- **FR-DATA-03:** If communication is lost, data must be stored in a local buffer and sent after reconnection.
 
-#### ۳-۲. ماژول پیش‌پردازش (Preprocessing)
-- **FR-PRE-01:** تشخیص و حذف داده‌های پرت (Outlier) با استفاده از روش IQR یا Z-Score.
-- **FR-PRE-02:** درون‌یابی (Interpolation) خطی برای جایگزینی مقادیر ازدست‌رفته (NaN).
-- **FR-PRE-03:** نرمال‌سازی داده‌ها با روش Min-Max یا StandardScaler برای ورود به مدل.
+#### 3-2. Preprocessing Module
+- **FR-PRE-01:** Detect and remove outliers using the IQR or Z-Score method.
+- **FR-PRE-02:** Linear interpolation to replace missing values (NaN).
+- **FR-PRE-03:** Data normalization with Min-Max or StandardScaler before entering the model.
 
-#### ۳-۳. ماژول پیش‌بینی و بهینه‌سازی (Prediction & Optimization)
-- **FR-ML-01:** پیش‌بینی دمای خروجی راکتور (Target Variable) برای ۶۰ ثانیه آینده با استفاده از مدل LSTM یا XGBoost.
-- **FR-ML-02:** در صورت پیش‌بینی انحراف بیش از ۵٪ از دمای نامی، هشدار سطح بحرانی (Critical) صادر شود.
-- **FR-ML-03:** سیستم توصیه‌گر (Recommender) با استفاده از الگوریتم‌های تکاملی، مقدار بهینه دبی خوراک ورودی را برای رسیدن به بیشینه راندمان محاسبه کند.
+#### 3-3. Prediction & Optimization Module
+- **FR-ML-01:** Predict the reactor outlet temperature (Target Variable) for the next 60 seconds using an LSTM or XGBoost model.
+- **FR-ML-02:** If a deviation of more than 5% from the nominal temperature is predicted, a Critical-level alert must be issued.
+- **FR-ML-03:** A Recommender system using evolutionary algorithms must compute the optimal inlet feed flow to achieve maximum efficiency.
 
-#### ۳-۴. ماژول گزارش و هشدار (Alerting)
-- **FR-ALERT-01:** ارسال هشدار از طریق تلگرام، ایمیل و نمایش روی صفحه کنترل اتاق مرکزی.
-- **FR-ALERT-02:** ثبت لاگ کلیه هشدارها با زمان دقیق و شناسه اپراتور پاسخ‌دهنده.
+#### 3-4. Alerting Module
+- **FR-ALERT-01:** Send alerts via Telegram, email and display on the central control room screen.
+- **FR-ALERT-02:** Log all alerts with the exact time and the ID of the responding operator.
 
-### ۴. نیازمندی‌های غیرعملکردی (Non-Functional Requirements)
+### 4. Non-Functional Requirements
 
-| شناسه | نیاز | مقدار هدف |
+| ID | Requirement | Target value |
 | :--- | :--- | :--- |
-| NFR-PER-01 | زمان پاسخ‌دهی پیش‌بینی | کمتر از ۲ ثانیه |
-| NFR-PER-02 | در دسترس بودن (Uptime) | ۹۹.۹۹٪ (کمتر از ۱ دقیقه توقف در هفته) |
-| NFR-SEC-01 | احراز هویت دو مرحله‌ای (2FA) برای دسترسی به تنظیمات | اجباری |
-| NFR-SEC-02 | رمزنگاری داده‌ها در حالت ذخیره‌سازی (AES-256) و انتقال (TLS 1.3) | اجباری |
-| NFR-SCL-01 | قابلیت مقیاس‌پذیری افقی برای پشتیبانی از ۵۰,۰۰۰ سنسور | مورد انتظار |
+| NFR-PER-01 | Prediction response time | Less than 2 seconds |
+| NFR-PER-02 | Availability (Uptime) | 99.99% (less than 1 minute of downtime per week) |
+| NFR-SEC-01 | Two-factor authentication (2FA) for access to settings | Mandatory |
+| NFR-SEC-02 | Data encryption at rest (AES-256) and in transit (TLS 1.3) | Mandatory |
+| NFR-SCL-01 | Horizontal scalability to support 50,000 sensors | Expected |
 
-### ۵. معماری فنی (Technical Architecture)
-- **زبان برنامه‌نویسی:** Python 3.10
-- **چارچوب وب:** FastAPI (برای microservices)
-- **پایگاه داده:** InfluxDB (برای داده‌های سری زمانی) + PostgreSQL (برای داده‌های تراکنشی)
-- **کش (Cache):** Redis
-- **ارسال پیام:** Apache Kafka (برای استریمینگ داده)
-- **MLOps:** MLflow برای ثبت مدل‌ها
+### 5. Technical Architecture
+- **Programming language:** Python 3.10
+- **Web framework:** FastAPI (for microservices)
+- **Database:** InfluxDB (for time-series data) + PostgreSQL (for transactional data)
+- **Cache:** Redis
+- **Messaging:** Apache Kafka (for data streaming)
+- **MLOps:** MLflow for model registry
 
 ---
 
-## 🧪 کد تولید داده‌های سنتتیک (Synthetic Data Generator)
+## 🧪 Synthetic Data Generator Code
 
-> 📌 نسخه اجراشدنی و به‌روز این کد در فایل [`data/generate_synthetic_data.py`](data/generate_synthetic_data.py) قرار دارد (قابل اجرا با `python data/generate_synthetic_data.py`). کد زیر صرفاً برای مرجع مستندسازی نگه‌داشته شده است.
+> 📌 The executable, up-to-date version of this code is in [`data/generate_synthetic_data.py`](data/generate_synthetic_data.py) (run with `python data/generate_synthetic_data.py`). The code below is kept for documentation reference only.
 
-کد زیر در پایتون نوشته شده و **۱۰,۰۰۰ رکورد** برای هر یک از **۷ متغیر کلیدی** با نرخ **۱ رکورد در ثانیه** تولید می‌کند. داده‌ها شامل الگوهای سینوسی، روندهای فصلی و نویز گاوسی برای شبیه‌سازی دنیای واقعی هستند و در نهایت در یک فایل CSV ذخیره می‌شوند.
+The code below is written in Python and generates **10,000 records** for each of the **7 key variables** at a rate of **1 record per second**. The data includes sinusoidal patterns, seasonal trends and Gaussian noise to simulate the real world, and is finally saved in a CSV file.
 
 ```python
 import numpy as np
@@ -465,54 +465,54 @@ import pandas as pd
 from datetime import datetime, timedelta
 
 # ==============================================
-# پارامترهای تولید داده
+# Data generation parameters
 # ==============================================
-NUM_RECORDS = 10000          # تعداد رکوردها برای هر متغیر (تقریباً 2.7 ساعت داده)
-START_TIME = datetime(2026, 7, 22, 8, 0, 0)   # زمان شروع (مشابه امروز)
+NUM_RECORDS = 10000          # number of records per variable (about 2.7 hours of data)
+START_TIME = datetime(2026, 7, 22, 8, 0, 0)   # start time (similar to today)
 
 # ==============================================
-# تولید برچسب زمانی با فاصله 1 ثانیه
+# Generate timestamps at 1-second intervals
 # ==============================================
 timestamps = [START_TIME + timedelta(seconds=i) for i in range(NUM_RECORDS)]
 
 # ==============================================
-# تولید داده‌های سنتتیک برای هر سنسور
+# Generate synthetic data for each sensor
 # ==============================================
 
-# 1. دمای راکتور (Reactor Temperature) - محدوده 150 تا 350 درجه سانتی‌گراد
-# شامل یک روند افزایشی و نوسان سیکلی
+# 1. Reactor Temperature - range 150 to 350 degrees Celsius
+# includes an upward trend and cyclic fluctuation
 t = np.linspace(0, 20 * np.pi, NUM_RECORDS)
 reactor_temp = 250 + 30 * np.sin(t * 0.5) + 0.01 * np.arange(NUM_RECORDS) + np.random.normal(0, 2, NUM_RECORDS)
 reactor_temp = np.clip(reactor_temp, 150, 350)
 
-# 2. فشار راکتور (Reactor Pressure) - محدوده 10 تا 40 بار
+# 2. Reactor Pressure - range 10 to 40 bar
 pressure = 25 + 5 * np.sin(t * 0.3) + 0.005 * np.arange(NUM_RECORDS) + np.random.normal(0, 0.8, NUM_RECORDS)
 pressure = np.clip(pressure, 10, 40)
 
-# 3. دبی جریان خوراک ورودی (Feed Flow) - محدوده 100 تا 500 مترمکعب بر ساعت
+# 3. Feed Flow - range 100 to 500 cubic meters per hour
 feed_flow = 300 + 80 * np.sin(t * 0.2 + 1.2) + np.random.normal(0, 5, NUM_RECORDS)
 feed_flow = np.clip(feed_flow, 100, 500)
 
-# 4. سطح مخزن (Tank Level) - محدوده 20 تا 85 درصد
+# 4. Tank Level - range 20 to 85 percent
 tank_level = 50 + 20 * np.sin(t * 0.15 + 2.5) + np.random.normal(0, 1.5, NUM_RECORDS)
 tank_level = np.clip(tank_level, 20, 85)
 
-# 5. ترکیب گاز خروجی (Ethylene Concentration) - محدوده 12 تا 25 درصد
+# 5. Output gas composition (Ethylene Concentration) - range 12 to 25 percent
 ethylene_conc = 18 + 3 * np.sin(t * 0.25 + 0.8) + 0.002 * np.arange(NUM_RECORDS) + np.random.normal(0, 0.5, NUM_RECORDS)
 ethylene_conc = np.clip(ethylene_conc, 12, 25)
 
-# 6. دور کمپرسور (Compressor RPM) - محدوده 1200 تا 1800 دور بر دقیقه
+# 6. Compressor RPM - range 1200 to 1800 revolutions per minute
 compressor_rpm = 1500 + 150 * np.sin(t * 0.1 + 3.0) + np.random.normal(0, 10, NUM_RECORDS)
 compressor_rpm = np.clip(compressor_rpm, 1200, 1800)
 
-# 7. راندمان تولید (Production Efficiency) - متغیر هدف (بر اساس سایر متغیرها)
-# شبیه‌سازی راندمان به عنوان تابعی از دما و فشار (با نویز)
+# 7. Production Efficiency - target variable (based on the other variables)
+# Efficiency simulated as a function of temperature and pressure (with noise)
 efficiency = ( (reactor_temp - 200) / 150 * 20 + (pressure - 20) / 20 * 10 + 60 
                + np.random.normal(0, 2, NUM_RECORDS) )
 efficiency = np.clip(efficiency, 40, 98)
 
 # ==============================================
-# ساخت دیتافریم
+# Build the dataframe
 # ==============================================
 df = pd.DataFrame({
     'timestamp': timestamps,
@@ -522,29 +522,29 @@ df = pd.DataFrame({
     'tank_level_percent': np.round(tank_level, 2),
     'ethylene_conc_percent': np.round(ethylene_conc, 2),
     'compressor_rpm': np.round(compressor_rpm, 0).astype(int),
-    'efficiency_target': np.round(efficiency, 2)   # متغیر وابسته (هدف)
+    'efficiency_target': np.round(efficiency, 2)   # dependent (target) variable
 })
 
 # ==============================================
-# ذخیره در فایل CSV
+# Save to CSV file
 # ==============================================
 output_file = "petrochemical_sensor_data_10k.csv"
 df.to_csv(output_file, index=False)
-print(f"✅ داده‌های سنتتیک با موفقیت در فایل '{output_file}' ذخیره شدند.")
-print(f"📊 تعداد رکوردها: {len(df):,} - تعداد متغیرها: {len(df.columns)}")
+print(f"✅ Synthetic data was successfully saved to file '{output_file}'.")
+print(f"📊 Number of records: {len(df):,} - Number of variables: {len(df.columns)}")
 
-# نمایش ۵ رکورد اول
-print("\n🔍 نمونه داده‌های تولید شده:")
+# Show the first 5 records
+print("\n🔍 Sample of generated data:")
 print(df.head())
 
-# نمایش اطلاعات آماری خلاصه
-print("\n📈 آمار توصیفی داده‌ها:")
+# Display summary statistics
+print("\n📈 Descriptive statistics of the data:")
 print(df.describe())
 ```
 
 ---
 
-### 📊 خروجی نمونه (نمایش ۵ رکورد اول):
+### 📊 Sample output (first 5 records):
 
 | timestamp | reactor_temp_c | reactor_pressure_bar | feed_flow_m3h | tank_level_percent | ethylene_conc_percent | compressor_rpm | efficiency_target |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
@@ -554,25 +554,25 @@ print(df.describe())
 
 ---
 
-### 🔧 نکات فنی پیاده‌سازی کد:
-1.  **نرخ نمونه‌برداری:** `timedelta(seconds=i)` تضمین می‌کند که دقیقاً ۱ رکورد در ثانیه داشته باشید.
-2.  **نویز واقع‌گرایانه:** از توزیع نرمال (`np.random.normal`) برای شبیه‌سازی خطای سنسور استفاده شده است.
-3.  **دامنه منطقی:** تمام مقادیر با `np.clip` در محدوده فیزیکی مجاز سنسورها نگهداری می‌شوند.
-4.  **رابطه علّی:** متغیر `efficiency_target` به‌عنوان تابعی غیرخطی از دما و فشار طراحی شده تا مدل یادگیری ماشین بتواند الگو را کشف کند.
+### 🔧 Technical implementation notes:
+1.  **Sampling rate:** `timedelta(seconds=i)` guarantees exactly 1 record per second.
+2.  **Realistic noise:** A normal distribution (`np.random.normal`) is used to simulate sensor error.
+3.  **Logical range:** All values are kept within the physically allowed sensor range with `np.clip`.
+4.  **Causal relationship:** The `efficiency_target` variable is designed as a nonlinear function of temperature and pressure so the machine learning model can discover the pattern.
 
 
 
 
-📄 مستند SRS – محصول ۱: بهینه‌سازی فرایندهای تولید و عملیات (با قابلیت ثبت اختراع)
-۱. مقدمه
-هدف: توسعه سیستمی مبتنی بر داده‌کاوی و یادگیری ماشین برای پیش‌بینی ناهنجاری‌های فرایندی و ارائه تنظیمات بهینه به اپراتورها به‌منظور کاهش مصرف انرژی، افزایش راندمان واکنش‌های شیمیایی و کاهش تولید محصولات نامنطبق (Off-Spec) .
+📄 SRS Document – Product 1: Production and Operations Process Optimization (Patentable)
+1. Introduction
+Purpose: Develop a system based on data mining and machine learning to predict process anomalies and provide optimal settings to operators in order to reduce energy consumption, increase chemical reaction efficiency and reduce the production of non-conforming products (Off-Spec).
 
-نوآوری ثبت اختراع: برخلاف اختراع پتروشیمی جم که صرفاً بر پیش‌بینی خواص محصول متمرکز است ، این سیستم قابلیت "بهینه‌سازی هم‌زمان سه هدف متضاد (هزینه تولید، کیفیت محصول، مصرف انرژی)" را با استفاده از الگوریتم‌های فراابتکاری و تولید داده‌های مصنوعی برای آموزش مدل در شرایط کم‌داده ارائه می‌دهد.
+Patent innovation: Unlike the Jam Petrochemical patent, which focuses solely on predicting product properties, this system provides the capability of "simultaneous optimization of three conflicting objectives (production cost, product quality, energy consumption)" using meta-heuristic algorithms and generating synthetic data to train the model under low-data conditions.
 
-۲. نیازمندی‌های عملکردی (با تأکید بر قابلیت‌های اختراع)
-شناسه	نیاز	قابلیت ثبت اختراع
-FR-ML-01	پیش‌بینی بلادرنگ پارامترهای کیفی محصول (MFI، چگالی، اندازه ذرات) با استفاده از حسگرهای مجازی مبتنی بر یادگیری ماشین 	حسگرهای مجازی هوشمند (مشابه اختراع ۱۱۲۰۵۷)
-FR-ML-02	پیش‌بینی دمای خروجی راکتور و سایر متغیرهای فرایندی برای ۶۰ ثانیه آینده با مدل LSTM یا XGBoost	پیش‌بینی چندمتغیره هم‌زمان
-FR-OPT-01	بهینه‌سازی هم‌زمان سه هدف هزینه، کیفیت و مصرف انرژی با الگوریتم ازدحام ذرات (PSO) و تعیین جبهه پارتو	بهینه‌سازی چندهدفه (نوآوری اصلی)
-FR-OPT-02	تولید داده‌های سنتتیک با روش‌های مونت کارلو و GAN برای آموزش مدل در شرایط کم‌داده تاریخی	تولید داده مجازی (نوآوری جدید)
-FR-ALERT-01	ارسال هشدار پیش‌بینی‌شده به اپراتور و ارائه توصیه‌های عملیاتی برای تنظیم پارامترها	سیستم توصیه‌گر بلادرنگ
+2. Functional Requirements (with emphasis on patent capabilities)
+ID	Requirement	Patent capability
+FR-ML-01	Real-time prediction of product quality parameters (MFI, density, particle size) using machine-learning-based virtual sensors 	Intelligent virtual sensors (similar to patent 112057)
+FR-ML-02	Prediction of reactor outlet temperature and other process variables for the next 60 seconds with an LSTM or XGBoost model	Simultaneous multivariate prediction
+FR-OPT-01	Simultaneous optimization of the three objectives cost, quality and energy consumption with Particle Swarm Optimization (PSO) and determination of the Pareto front	Multi-objective optimization (main innovation)
+FR-OPT-02	Generation of synthetic data with Monte Carlo and GAN methods to train the model under low historical data	Virtual data generation (new innovation)
+FR-ALERT-01	Sending predicted alerts to the operator and providing operational recommendations for adjusting parameters	Real-time recommender system

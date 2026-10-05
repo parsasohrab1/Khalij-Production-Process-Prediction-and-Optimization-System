@@ -1,11 +1,11 @@
 # ==========================================================================
-# فاز ۸ — مشاهده‌پذیری (Prometheus / Grafana / Loki / Tempo)
-# اجرا:
+# Phase 8 — Observability (Prometheus / Grafana / Loki / Tempo)
+# Run:
 #   docker compose -f docker-compose.yml -f docker-compose.observability.yml --profile observability up -d
-# یا:
+# or:
 #   docker compose --profile observability -f docker-compose.yml -f docker-compose.observability.yml up -d
 #
-# UIها:
+# UIs:
 #   Grafana    http://localhost:3000  (admin / admin)
 #   Prometheus http://localhost:9090
 #   Tempo      http://localhost:3200
@@ -93,7 +93,7 @@ services:
       - "4318:4318"
     networks: [khalij-net]
 
-  # فعال‌سازی OTEL برای سرویس‌های اپلیکیشن وقتی profile observability روشن است
+  # Enable OTEL for application services when the observability profile is on
   api-gateway:
     environment:
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://tempo:4318}

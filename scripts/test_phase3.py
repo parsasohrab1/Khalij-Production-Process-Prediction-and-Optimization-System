@@ -1,6 +1,6 @@
-"""تست‌های واحد فاز ۳: metrics، drift، training pipeline (بدون نیاز به MLflow زنده).
+"""Phase 3 unit tests: metrics, drift, training pipeline (without needing a live MLflow).
 
-اجرا:
+Run:
     python scripts/test_phase3.py
 """
 from __future__ import annotations
@@ -56,7 +56,7 @@ def test_drift() -> None:
 
 
 def test_training_pipeline_without_mlflow() -> None:
-    """آموزش XGBoost+MLP روی داده سنتتیک؛ MLflow ممکن است در دسترس نباشد."""
+    """XGBoost+MLP training on synthetic data; MLflow may be unavailable."""
     import os
 
     os.environ["MLFLOW_HTTP_REQUEST_TIMEOUT"] = "2"
@@ -85,7 +85,7 @@ def test_training_pipeline_without_mlflow() -> None:
     pred = xgb.predict_from_history(series[-10:])
     assert 150 <= pred <= 350
 
-    # pipeline کامل با file store محلی
+    # complete pipeline with a local file store
     os.environ["MLFLOW_ALLOW_FILE_STORE"] = "true"
     mlruns = ROOT / ".mlruns_test"
     mlruns.mkdir(exist_ok=True)

@@ -1,9 +1,9 @@
-"""Smoke test پایلوت (فاز ۱۰) — بررسی سلامت سرویس‌ها و معیارهای پذیرش قابل‌اتومات.
+"""Pilot smoke test (phase 10) — checks service health and automatable acceptance criteria.
 
-اجرا بدون کلاستر (آفلاین):
+Run without a cluster (offline):
     python scripts/pilot_smoke.py --offline
 
-اجرا روی محیط زنده:
+Run on a live environment:
     python scripts/pilot_smoke.py --base-url http://localhost:8000
 """
 from __future__ import annotations
@@ -28,7 +28,7 @@ def load_pilot() -> dict:
 
 
 def check_offline() -> dict[str, Any]:
-    """بررسی‌هایی که بدون سرویس زنده قابل انجام‌اند."""
+    """Checks that can be done without a live service."""
     from shared.slo import NFR_PER_02_WEEKLY
     from shared.security import role_at_least, validate_password_policy
     from shared.scaling import LatencyTracker
@@ -137,12 +137,12 @@ def check_live(base_url: str, token: str | None) -> dict[str, Any]:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Khalij POS pilot smoke test")
-    parser.add_argument("--offline", action="store_true", help="فقط بررسی‌های آفلاین")
+    parser.add_argument("--offline", action="store_true", help="offline checks only")
     parser.add_argument("--base-url", default="http://localhost:8000")
-    parser.add_argument("--token", default="", help="Bearer token اختیاری برای APIهای محافظت‌شده")
+    parser.add_argument("--token", default="", help="optional Bearer token for protected APIs")
     args = parser.parse_args()
 
-    print("=== Pilot Smoke (فاز ۱۰) ===")
+    print("=== Pilot Smoke (phase 10) ===")
     results = check_offline()
     if not args.offline:
         print(f"Live checks → {args.base_url}")

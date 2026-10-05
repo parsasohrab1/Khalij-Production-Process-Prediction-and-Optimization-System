@@ -1,4 +1,4 @@
-"""محدودسازی نرخ درخواست با Redis (فاز ۶)."""
+"""Request rate limiting with Redis (phase 6)."""
 from __future__ import annotations
 
 import logging
@@ -18,7 +18,7 @@ class RateLimiter:
         self._r = redis.from_url(redis_url or settings.redis_url, decode_responses=True)
 
     def hit(self, key: str, limit: int, window_seconds: int) -> tuple[bool, int]:
-        """True اگر مجاز؛ دومین مقدار = تعداد فعلی در پنجره."""
+        """True if allowed; the second value = the current count in the window."""
         now = int(time.time())
         bucket = f"ratelimit:{key}:{now // window_seconds}"
         try:
@@ -40,6 +40,6 @@ def enforce_rate_limit(request: Request, *, scope: str, limit: int, window_secon
     if not allowed:
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail=f"نرخ درخواست بیش از حد مجاز است ({count}/{limit} در {window_seconds}ث).",
+            detail=f"Request rate exceeds the allowed limit ({count}/{limit} in {window_seconds}s).",
             headers={"Retry-After": str(window_seconds)},
         )

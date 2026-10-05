@@ -1,8 +1,8 @@
-"""ابزار رمزنگاری AES-256-GCM برای داده‌های حساس در حالت ذخیره‌سازی (NFR-SEC-02).
+"""AES-256-GCM encryption utility for sensitive data at rest (NFR-SEC-02).
 
-کلید از متغیر محیطی DATA_ENCRYPTION_KEY (۳۲ بایت، Base64) خوانده می‌شود.
-اگر کلید تنظیم نشده باشد، رمزنگاری غیرفعال است و داده به‌صورت plaintext ذخیره می‌شود
-(مناسب محیط توسعه؛ در production باید حتماً فعال باشد).
+The key is read from the DATA_ENCRYPTION_KEY environment variable (32 bytes, Base64).
+If the key is not set, encryption is disabled and data is stored as plaintext
+(suitable for the development environment; in production it must be enabled).
 """
 from __future__ import annotations
 
@@ -24,16 +24,16 @@ def _load_key() -> bytes | None:
     try:
         key = base64.b64decode(raw)
         if len(key) != 32:
-            logger.error("DATA_ENCRYPTION_KEY باید ۳۲ بایت (AES-256) باشد؛ رمزنگاری غیرفعال شد.")
+            logger.error("DATA_ENCRYPTION_KEY must be 32 bytes (AES-256); encryption disabled.")
             return None
         return key
     except Exception:  # noqa: BLE001
-        logger.error("DATA_ENCRYPTION_KEY نامعتبر است؛ رمزنگاری غیرفعال شد.")
+        logger.error("DATA_ENCRYPTION_KEY is invalid; encryption disabled.")
         return None
 
 
 def encrypt_at_rest(plaintext: str) -> str:
-    """رمزنگاری متن با AES-256-GCM. خروجی: aes256gcm:<nonce_b64>:<ciphertext_b64>."""
+    """Encrypt text with AES-256-GCM. Output: aes256gcm:<nonce_b64>:<ciphertext_b64>."""
     key = _load_key()
     if key is None or not plaintext:
         return plaintext
@@ -47,12 +47,12 @@ def encrypt_at_rest(plaintext: str) -> str:
 
 
 def decrypt_at_rest(value: str) -> str:
-    """بازگشایی مقدار رمزشده؛ اگر prefix نداشته باشد همان مقدار را برمی‌گرداند."""
+    """Decrypt an encrypted value; if it has no prefix, returns the same value."""
     if not value or not value.startswith(_PREFIX):
         return value
     key = _load_key()
     if key is None:
-        raise RuntimeError("داده رمزشده است ولی DATA_ENCRYPTION_KEY تنظیم نشده.")
+        raise RuntimeError("Data is encrypted but DATA_ENCRYPTION_KEY is not set.")
     try:
         _, nonce_b64, ct_b64 = value.split(":", 2)
         nonce = base64.b64decode(nonce_b64)
@@ -60,9 +60,9 @@ def decrypt_at_rest(value: str) -> str:
         aesgcm = AESGCM(key)
         return aesgcm.decrypt(nonce, ciphertext, None).decode("utf-8")
     except Exception as exc:  # noqa: BLE001
-        raise RuntimeError("بازگشایی داده رمزشده ناموفق بود.") from exc
+        raise RuntimeError("Decrypting the encrypted data failed.") from exc
 
 
 def generate_key_b64() -> str:
-    """تولید یک کلید تصادفی ۳۲ بایتی به صورت Base64 (برای قرار دادن در .env)."""
+    """Generate a random 32-byte key as Base64 (to put in .env)."""
     return base64.b64encode(os.urandom(32)).decode("ascii")

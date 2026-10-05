@@ -1,4 +1,4 @@
-# استقرار Khalij POS روی Kubernetes (فاز ۹) — PowerShell
+# Deploy Khalij POS on Kubernetes (phase 9) — PowerShell
 param(
   [ValidateSet("base", "dev")]
   [string]$Overlay = "base"

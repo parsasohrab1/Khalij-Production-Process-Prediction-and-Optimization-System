@@ -1,6 +1,6 @@
-"""تست یکپارچه فاز ۱: بارگذاری نگاشت تگ، Circuit Breaker، رمزنگاری AES-256.
+"""Phase 1 integration test: tag mapping loading, Circuit Breaker, AES-256 encryption.
 
-اجرا (از ریشه پروژه):
+Run (from the project root):
     python scripts/test_phase1.py
 """
 from __future__ import annotations

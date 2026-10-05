@@ -1,9 +1,9 @@
-"""مدل LSTM جایگزین برای پیش‌بینی دمای راکتور (FR-ML-01).
+"""Alternative LSTM model for reactor temperature prediction (FR-ML-01).
 
-TensorFlow به‌صورت پیش‌فرض در requirements.txt نصب نمی‌شود (برای سبک نگه‌داشتن
-ایمیج پیش‌فرض که XGBoost را استفاده می‌کند). برای فعال‌سازی LSTM:
+TensorFlow is not installed by default in requirements.txt (to keep the default
+image that uses XGBoost light). To enable LSTM:
     pip install tensorflow==2.16.1
-و سپس `PREDICTION_MODEL_TYPE=lstm` را در .env تنظیم کنید.
+and then set `PREDICTION_MODEL_TYPE=lstm` in .env.
 """
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ class LSTMTemperaturePredictor(BaseTemperaturePredictor):
             import tensorflow as tf  # noqa: F401
         except ImportError as exc:
             raise ImportError(
-                "TensorFlow نصب نشده است. برای استفاده از مدل LSTM: pip install tensorflow==2.16.1"
+                "TensorFlow is not installed. To use the LSTM model: pip install tensorflow==2.16.1"
             ) from exc
 
         from tensorflow import keras
@@ -45,7 +45,7 @@ class LSTMTemperaturePredictor(BaseTemperaturePredictor):
 
     def predict(self, X: np.ndarray) -> np.ndarray:
         if not self._is_fitted:
-            raise RuntimeError("مدل هنوز آموزش داده نشده است؛ ابتدا fit را صدا بزنید.")
+            raise RuntimeError("The model has not been trained yet; call fit first.")
         X_reshaped = X.reshape((X.shape[0], X.shape[1], 1))
         return self._model.predict(X_reshaped, verbose=0).flatten()
 

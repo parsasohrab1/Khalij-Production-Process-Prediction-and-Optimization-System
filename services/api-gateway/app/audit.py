@@ -1,4 +1,4 @@
-"""ثبت وقایع امنیتی و عملیاتی (Audit Trail) — فاز ۶."""
+"""Recording security and operational events (Audit Trail) — phase 6."""
 from __future__ import annotations
 
 import json
@@ -49,7 +49,7 @@ class AuditLogger:
                 conn.commit()
             self._ready = True
         except Exception:  # noqa: BLE001
-            logger.exception("ایجاد جدول audit_events ناموفق بود.")
+            logger.exception("Creating the audit_events table failed.")
 
     def log(
         self,
@@ -90,7 +90,7 @@ class AuditLogger:
                 )
                 conn.commit()
         except Exception:  # noqa: BLE001
-            logger.debug("ثبت audit ناموفق بود.", exc_info=True)
+            logger.debug("Audit recording failed.", exc_info=True)
 
     def list_recent(self, limit: int = 50) -> list[dict]:
         if not self._ready:
@@ -116,7 +116,7 @@ class AuditLogger:
                     rows.append(item)
                 return rows
         except Exception:  # noqa: BLE001
-            logger.exception("خوانش audit ناموفق بود.")
+            logger.exception("Reading the audit failed.")
             return []
 
 

@@ -1,6 +1,6 @@
-"""تست‌های واحد فاز ۴: قیود ایمنی، بهینه‌سازی چندمتغیره، What-if.
+"""Phase 4 unit tests: safety constraints, multivariable optimization, What-if.
 
-اجرا:
+Run:
     python scripts/test_phase4.py
 """
 from __future__ import annotations
@@ -26,7 +26,7 @@ def test_hard_constraints() -> None:
         current_pressure_bar=25,
         current_feed_flow=300,
     )
-    # نقض محدوده ایمن دما
+    # violation of the safe temperature range
     v = check_hard_constraints(
         reactor_temp_c=340,
         pressure_bar=25,
@@ -35,7 +35,7 @@ def test_hard_constraints() -> None:
         current_feed_flow=300,
     )
     assert any(x.name == "temp_safe_envelope" for x in v)
-    # نقض نرخ تغییر دبی
+    # violation of the feed flow rate of change
     v2 = check_hard_constraints(
         reactor_temp_c=250,
         pressure_bar=25,
@@ -44,7 +44,7 @@ def test_hard_constraints() -> None:
         current_feed_flow=300,
     )
     assert any(x.name == "feed_rate_of_change" for x in v2)
-    # قید ترکیبی P+T بالا
+    # high P+T combined constraint
     v3 = check_hard_constraints(
         reactor_temp_c=310,
         pressure_bar=33,
@@ -64,9 +64,9 @@ def test_multivariable_optimizer() -> None:
     assert result["constraints_satisfied"] is True
     assert "recommended" in result and "feed_flow_m3h" in result["recommended"]
     assert "pressure_bar" in result["recommended"]
-    # توصیه باید راندمان را بهبود دهد یا حداقل بدتر نکند (در فضای شدنی)
+    # the recommendation must improve efficiency or at least not worsen it (in the feasible space)
     assert result["recommended"]["estimated_efficiency"] >= result["current"]["estimated_efficiency"] - 0.01
-    # نرخ تغییر رعایت شده
+    # the rate of change is respected
     assert abs(result["recommended"]["feed_flow_m3h"] - 380.0) <= 80.0 + 1e-6
     assert abs(result["recommended"]["pressure_bar"] - 28.0) <= 5.0 + 1e-6
     print(
@@ -93,7 +93,7 @@ def test_whatif() -> None:
         current_pressure_bar=25,
         current_feed_flow=300,
         proposed_pressure_bar=25,
-        proposed_feed_flow=500,  # خارج از نرخ تغییر و/یا محدوده ایمن
+        proposed_feed_flow=500,  # outside the rate of change and/or the safe range
     )
     assert unsafe["constraints_satisfied"] is False
     assert unsafe["recommendation"] == "reject_unsafe"

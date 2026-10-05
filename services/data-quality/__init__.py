@@ -1,1 +1,1 @@
-"""سرویس/ابزار کیفیت داده (فاز ۲)."""
+"""Data quality service/tool (phase 2)."""

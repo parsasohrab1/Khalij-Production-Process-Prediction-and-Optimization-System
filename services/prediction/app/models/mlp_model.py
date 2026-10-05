@@ -1,7 +1,7 @@
-"""مدل MLP (شبکه عصبی سبک با scikit-learn) به‌عنوان جایگزین LSTM بدون TensorFlow.
+"""MLP model (a light scikit-learn neural network) as an LSTM alternative without TensorFlow.
 
-برای مقایسه سیستماتیک با XGBoost در محیط‌هایی که TensorFlow نصب نیست استفاده می‌شود.
-اگر TensorFlow موجود باشد، pipeline آموزش LSTM واقعی را نیز اجرا می‌کند.
+Used for systematic comparison with XGBoost in environments where TensorFlow is not installed.
+If TensorFlow is available, the pipeline also runs the real LSTM training.
 """
 from __future__ import annotations
 
@@ -34,7 +34,7 @@ class MLPTemperaturePredictor(BaseTemperaturePredictor):
 
     def predict(self, X: np.ndarray) -> np.ndarray:
         if not self._is_fitted:
-            raise RuntimeError("مدل هنوز آموزش داده نشده است؛ ابتدا fit را صدا بزنید.")
+            raise RuntimeError("The model has not been trained yet; call fit first.")
         return self._model.predict(X)
 
     def predict_from_history(self, history: list[float]) -> float:

@@ -1,15 +1,15 @@
 # ==========================================================================
-# فاز ۱۰ — پیکربندی پایلوت واحد الفین (Olefin Unit 1)
+# Phase 10 — Olefin Unit 1 pilot configuration
 # ==========================================================================
 pilot:
   name: "khalij-pos-olefin-pilot"
   version: "1.0.0"
-  site: "هلدینگ خلیج فارس — واحد الفین ۱"
+  site: "Persian Gulf Holding — Olefin Unit 1"
   unit_id: 1
   unit_name: "Olefin Unit 1"
   duration_days: 14
-  mode: "shadow"   # shadow = توصیه بدون اعمال خودکار | assisted = اپراتور اعمال می‌کند
-  data_source_mode: "simulator"  # در سایت: opcua | modbus
+  mode: "shadow"   # shadow = recommendation without automatic application | assisted = operator applies
+  data_source_mode: "simulator"  # on site: opcua | modbus
   owner: "control-room-supervisor"
   rollback_max_minutes: 30
 
@@ -32,40 +32,40 @@ scope:
     - dashboard
     - audit
   features_disabled_until_signoff:
-    - auto_apply_setpoints   # اعمال خودکار به DCS ممنوع تا تأیید ایمنی
+    - auto_apply_setpoints   # automatic application to the DCS is forbidden until safety approval
 
 acceptance_criteria:
   - id: AC-01
     srs: R-GEN-01
-    description: "حداقل ۱ رکورد سنسور در ثانیه برای واحد پایلوت"
+    description: "At least 1 sensor record per second for the pilot unit"
     metric: "ingestion_rate_hz >= 1"
   - id: AC-02
     srs: FR-ML-01
-    description: "پیش‌بینی دما با افق ۶۰ثانیه و P95 تأخیر < ۲ثانیه"
+    description: "Temperature prediction with a 60-second horizon and P95 latency < 2 seconds"
     metric: "prediction_p95_ms <= 2000"
   - id: AC-03
     srs: FR-ML-02
-    description: "هشدار Critical در انحراف >۵٪ ثبت و به اتاق کنترل می‌رسد"
+    description: "Critical alert at >5% deviation is recorded and reaches the control room"
     metric: "critical_alert_delivered == true"
   - id: AC-04
     srs: FR-ML-03
-    description: "توصیه بهینه‌سازی با قیود ایمنی تولید می‌شود"
+    description: "Optimization recommendation is produced with safety constraints"
     metric: "optimize_constraints_satisfied == true"
   - id: AC-05
     srs: NFR-SEC-01
-    description: "ورود اپراتور فقط با 2FA"
+    description: "Operator login only with 2FA"
     metric: "login_requires_otp == true"
   - id: AC-06
     srs: NFR-PER-02
-    description: "در بازه پایلوت downtime تجمعی کمتر از بودجه SLO هفتگی"
+    description: "Cumulative downtime during the pilot period is below the weekly SLO budget"
     metric: "weekly_downtime_s <= 60.5"
   - id: AC-07
     srs: R-GEN-03
-    description: "داشبورد زنده سنسور/پیش‌بینی/هشدار قابل مشاهده است"
+    description: "Live sensor/prediction/alert dashboard is observable"
     metric: "dashboard_snapshot_ok == true"
   - id: AC-08
     srs: R-GEN-04
-    description: "گزارش شیفت قابل تولید و خروجی PDF/Excel"
+    description: "Shift report can be generated and exported to PDF/Excel"
     metric: "shift_report_export_ok == true"
 
 gates:

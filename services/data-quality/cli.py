@@ -1,6 +1,6 @@
-"""CLI کیفیت داده (فاز ۲) — اجرای Expectation Suite روی CSV یا JSON.
+"""Data quality CLI (phase 2) — runs the Expectation Suite on CSV or JSON.
 
-مثال‌ها:
+Examples:
     python -m data_quality.cli --csv data/petrochemical_sensor_data_10k.csv
     python -m data_quality.cli --json-line '{"timestamp":"...","reactor_temp_c":250,...}'
 """
@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pandas as pd
 
-# اجازه import از ریشه پروژه
+# allow imports from the project root
 ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
@@ -23,10 +23,10 @@ from shared.data_quality import validate_batch, validate_record  # noqa: E402
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Data Quality Expectation Suite (Phase 2)")
-    parser.add_argument("--csv", type=Path, help="مسیر فایل CSV داده سنسور")
-    parser.add_argument("--json-line", type=str, help="یک رکورد JSON برای اعتبارسنجی")
+    parser.add_argument("--csv", type=Path, help="path of the sensor data CSV file")
+    parser.add_argument("--json-line", type=str, help="one JSON record for validation")
     parser.add_argument("--max-null-rate", type=float, default=0.05)
-    parser.add_argument("--limit", type=int, default=0, help="حداکثر تعداد ردیف از CSV (0=همه)")
+    parser.add_argument("--limit", type=int, default=0, help="maximum number of rows from the CSV (0=all)")
     args = parser.parse_args()
 
     if args.json_line:
@@ -49,7 +49,7 @@ def main() -> int:
             print(f"  ... and {len(failures) - 20} more")
         return 0 if report.passed else 1
 
-    parser.error("یکی از --csv یا --json-line لازم است.")
+    parser.error("One of --csv or --json-line is required.")
     return 2
 
 

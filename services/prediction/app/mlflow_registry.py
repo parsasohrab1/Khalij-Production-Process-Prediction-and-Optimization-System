@@ -1,10 +1,10 @@
-"""ثبت Experiment و Model Registry در MLflow (فاز ۳).
+"""Experiment and Model Registry registration in MLflow (phase 3).
 
-جریان:
-  1. log_run → ثبت پارامتر/متریک/artifact
-  2. register_model → ثبت در Model Registry
-  3. promote_model → انتقال Staging → Production
-  4. load_production_model_uri → URI مدل Production برای سرو آنلاین
+Flow:
+  1. log_run → record parameters/metrics/artifact
+  2. register_model → register in the Model Registry
+  3. promote_model → move Staging → Production
+  4. load_production_model_uri → the Production model URI for online serving
 """
 from __future__ import annotations
 
@@ -23,7 +23,7 @@ REGISTERED_MODEL_NAME = "reactor_temp_predictor"
 
 
 def _configure_mlflow_timeouts() -> None:
-    """جلوگیری از hang طولانی هنگام در دسترس نبودن سرور MLflow."""
+    """Prevent a long hang when the MLflow server is unavailable."""
     os.environ.setdefault("MLFLOW_HTTP_REQUEST_TIMEOUT", "5")
     os.environ.setdefault("MLFLOW_HTTP_REQUEST_MAX_RETRIES", "1")
 
@@ -37,7 +37,7 @@ class MLflowModelManager:
             mlflow.set_tracking_uri(tracking_uri)
             self._client = MlflowClient(tracking_uri)
         except Exception as exc:  # noqa: BLE001
-            logger.warning("اتصال اولیه به MLflow ناموفق بود: %s", exc)
+            logger.warning("Initial connection to MLflow failed: %s", exc)
             self._enabled = False
             self._client = None
 
@@ -50,7 +50,7 @@ class MLflowModelManager:
                 return self._client.create_experiment(EXPERIMENT_NAME)
             return exp.experiment_id
         except Exception as exc:  # noqa: BLE001
-            logger.debug("ensure_experiment ناموفق: %s", exc)
+            logger.debug("ensure_experiment failed: %s", exc)
             self._enabled = False
             return None
 
@@ -64,7 +64,7 @@ class MLflowModelManager:
         artifact_path: str = "model",
         tags: dict[str, str] | None = None,
     ) -> str | None:
-        """ثبت یک اجرای آموزش و برگرداندن run_id (یا None در صورت شکست)."""
+        """Record a training run and return run_id (or None on failure)."""
         experiment_id = self.ensure_experiment()
         if experiment_id is None:
             return None
@@ -85,11 +85,11 @@ class MLflowModelManager:
 
                         mlflow_sklearn.log_model(model_artifact, artifact_path=artifact_path)
                     except Exception:  # noqa: BLE001
-                        logger.debug("لاگ مدل sklearn ناموفق بود.")
-                logger.info("MLflow run ثبت شد: %s (model=%s)", run.info.run_id, model_name)
+                        logger.debug("Logging the sklearn model failed.")
+                logger.info("MLflow run recorded: %s (model=%s)", run.info.run_id, model_name)
                 return run.info.run_id
         except Exception as exc:  # noqa: BLE001
-            logger.debug("ثبت MLflow ناموفق بود (%s)؛ آموزش بدون Registry ادامه می‌یابد.", exc)
+            logger.debug("MLflow recording failed (%s); training continues without the Registry.", exc)
             self._enabled = False
             return None
 
@@ -107,7 +107,7 @@ class MLflowModelManager:
             result = mlflow.register_model(model_uri, REGISTERED_MODEL_NAME)
             version = str(result.version)
         except Exception as exc:  # noqa: BLE001
-            logger.warning("register_model استاندارد ناموفق بود (%s)؛ ثبت metadata انجام می‌شود.", exc)
+            logger.warning("Standard register_model failed (%s); metadata is recorded instead.", exc)
             try:
                 self._client.create_registered_model(REGISTERED_MODEL_NAME)
             except Exception:  # noqa: BLE001
@@ -129,7 +129,7 @@ class MLflowModelManager:
                 stage=stage,
                 archive_existing_versions=(stage == "Production"),
             )
-            logger.info("مدل %s نسخه %s به مرحله %s منتقل شد.", REGISTERED_MODEL_NAME, version, stage)
+            logger.info("Model %s version %s moved to stage %s.", REGISTERED_MODEL_NAME, version, stage)
             return version
         except Exception:  # noqa: BLE001
             return version

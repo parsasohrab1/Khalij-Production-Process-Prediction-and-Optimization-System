@@ -1,4 +1,4 @@
-"""کلاینت Modbus TCP برای دریافت داده از PLC/DCS (FR-DATA-01)."""
+"""Modbus TCP client for receiving data from the PLC/DCS (FR-DATA-01)."""
 from __future__ import annotations
 
 import logging
@@ -10,11 +10,11 @@ logger = logging.getLogger(__name__)
 
 
 class ModbusConnectionError(RuntimeError):
-    """هنگامی که اتصال Modbus TCP برقرار نشود، صادر می‌شود."""
+    """Raised when the Modbus TCP connection cannot be established."""
 
 
 class ModbusClient:
-    """اتصال به یک واحد Modbus TCP و خوانش رجیسترهای هولدینگ برای هر سنسور."""
+    """Connect to a Modbus TCP unit and read the holding registers for each sensor."""
 
     def __init__(self, host: str, port: int, registers: dict[str, int], scale: dict[str, float] | None = None):
         self.host = host
@@ -30,15 +30,15 @@ class ModbusClient:
         reraise=True,
     )
     async def connect(self) -> None:
-        """اتصال به سرور Modbus TCP با Retry Policy نمایی (Exponential Backoff)."""
+        """Connect to the Modbus TCP server with an exponential Retry Policy (Exponential Backoff)."""
         connected = await self._client.connect()
         if not connected:
-            raise ModbusConnectionError(f"اتصال به {self.host}:{self.port} ناموفق بود.")
-        logger.info("اتصال Modbus TCP به %s:%s برقرار شد.", self.host, self.port)
+            raise ModbusConnectionError(f"Connection to {self.host}:{self.port} failed.")
+        logger.info("Modbus TCP connection to %s:%s established.", self.host, self.port)
 
     async def disconnect(self) -> None:
         self._client.close()
-        logger.info("اتصال Modbus TCP بسته شد.")
+        logger.info("Modbus TCP connection closed.")
 
     async def read_once(self) -> dict[str, float]:
         values: dict[str, float] = {}
@@ -46,10 +46,10 @@ class ModbusClient:
             try:
                 result = await self._client.read_holding_registers(address, 1)
                 if result.isError():
-                    logger.error("خوانش رجیستر %s برای %s ناموفق بود.", address, tag)
+                    logger.error("Reading register %s for %s failed.", address, tag)
                     continue
                 raw_value = result.registers[0]
                 values[tag] = raw_value * self.scale.get(tag, 1.0)
-            except Exception as exc:  # noqa: BLE001 - می‌خواهیم هر خطای ارتباطی را لاگ کنیم
-                logger.error("خطا در خوانش Modbus برای %s: %s", tag, exc)
+            except Exception as exc:  # noqa: BLE001 - we want to log any communication error
+                logger.error("Error reading Modbus for %s: %s", tag, exc)
         return values

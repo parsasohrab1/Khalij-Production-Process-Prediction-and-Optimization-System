@@ -1,6 +1,6 @@
 # ==========================================================================
-# فاز ۱۰ — Compose پایلوت (تک‌واحد، منابع محدود، مشاهده‌پذیری اختیاری)
-# اجرا:
+# Phase 10 — Pilot Compose (single unit, limited resources, optional observability)
+# Run:
 #   docker compose -f docker-compose.yml -f docker-compose.pilot.yml up -d
 # ==========================================================================
 

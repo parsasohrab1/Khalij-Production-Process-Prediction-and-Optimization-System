@@ -1,7 +1,7 @@
-"""دروازه API (API Gateway) - نقطه ورود واحد داشبورد به میکروسرویس‌ها.
+"""API Gateway - the single entry point of the dashboard to the microservices.
 
-پیاده‌سازی احراز هویت دو مرحله‌ای اجباری (NFR-SEC-01)، مسیریابی درخواست‌ها،
-و سخت‌سازی امنیتی فاز ۶ (RBAC، rate limit، lockout، audit، security headers).
+Implements mandatory two-factor authentication (NFR-SEC-01), request routing,
+and the phase 6 security hardening (RBAC, rate limit, lockout, audit, security headers).
 """
 from __future__ import annotations
 
@@ -50,7 +50,7 @@ settings = get_settings()
 configure_logging("api-gateway", settings.log_level)
 logger = logging.getLogger(__name__)
 
-# همگام‌سازی کلید داخلی با env برای کلاینت‌های httpx
+# synchronize the internal key with env for httpx clients
 if settings.internal_api_key and not os.getenv("INTERNAL_API_KEY"):
     os.environ["INTERNAL_API_KEY"] = settings.internal_api_key
 
@@ -159,20 +159,20 @@ async def observability_slo(
     downtime_seconds: float = 0.0,
     operator: dict = Depends(require_min_role("supervisor")),
 ) -> dict:
-    """محاسبه بودجه خطای NFR-PER-02 (۹۹.۹۹٪)."""
+    """Compute the NFR-PER-02 error budget (99.99%)."""
     return {
         "nfr": "NFR-PER-02",
         "target": "99.99% availability",
         "weekly": NFR_PER_02_WEEKLY.as_dict(downtime_seconds),
         "monthly": NFR_PER_02_MONTHLY.as_dict(downtime_seconds),
-        "note": "downtime_seconds را از Prometheus (time() - timestamp(up==0)) یا Alertmanager بگیرید.",
+        "note": "Take downtime_seconds from Prometheus (time() - timestamp(up==0)) or Alertmanager.",
     }
 
 
 @app.get("/")
 @app.get("/dashboard")
 async def dashboard_page():
-    """داشبورد مانیتورینگ با نمایش هشدارهای پیش‌بینی‌شده (R-GEN-03)."""
+    """Monitoring dashboard showing predicted alerts (R-GEN-03)."""
     return FileResponse(_STATIC_DIR / "dashboard.html")
 
 
@@ -190,7 +190,7 @@ async def health_services() -> dict:
 
 
 # ---------------------------------------------------------------------
-# احراز هویت دو مرحله‌ای + سخت‌سازی فاز ۶
+# two-factor authentication + phase 6 hardening
 # ---------------------------------------------------------------------
 @app.post("/auth/login")
 async def login(body: LoginRequest, request: Request) -> dict:
@@ -213,7 +213,7 @@ async def login(body: LoginRequest, request: Request) -> dict:
         )
         raise HTTPException(
             status_code=status.HTTP_423_LOCKED,
-            detail=f"حساب موقتاً قفل است. {ttl} ثانیه دیگر تلاش کنید.",
+            detail=f"The account is temporarily locked. Try again in {ttl} seconds.",
             headers={"Retry-After": str(ttl)},
         )
 
@@ -228,7 +228,7 @@ async def login(body: LoginRequest, request: Request) -> dict:
             details={"failures": fails},
             **meta,
         )
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="کد کارمندی یا رمز عبور نادرست است.")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect employee code or password.")
 
     _lockout.clear(body.employee_code)
     _audit.log(
@@ -254,20 +254,20 @@ async def verify_otp(body: OtpVerifyRequest, request: Request) -> dict:
     meta = _client_meta(request)
     payload = decode_token(body.pending_token)
     if payload.get("token_type") != "pending_otp":
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="توکن موقت نامعتبر است.")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="The temporary token is invalid.")
 
     employee_code = payload["employee_code"]
     locked, ttl = _lockout.is_locked(employee_code)
     if locked:
         raise HTTPException(
             status_code=status.HTTP_423_LOCKED,
-            detail=f"حساب موقتاً قفل است. {ttl} ثانیه دیگر تلاش کنید.",
+            detail=f"The account is temporarily locked. Try again in {ttl} seconds.",
             headers={"Retry-After": str(ttl)},
         )
 
     operator = get_operator_by_employee_code(employee_code)
     if not operator or not operator.get("otp_secret"):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="احراز هویت دو مرحله‌ای فعال نیست.")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Two-factor authentication is not enabled.")
 
     if not verify_otp_code(operator["otp_secret"], body.otp_code):
         fails = _lockout.register_failure(employee_code)
@@ -279,7 +279,7 @@ async def verify_otp(body: OtpVerifyRequest, request: Request) -> dict:
             details={"failures": fails},
             **meta,
         )
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="کد یک‌بارمصرف نادرست است.")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="The one-time code is incorrect.")
 
     _lockout.clear(employee_code)
     token = create_access_token(operator["id"], operator["employee_code"], operator["role"])
@@ -325,7 +325,7 @@ async def change_password(
         raise HTTPException(status_code=400, detail={"policy_errors": errors})
     row = get_operator_by_employee_code(operator["employee_code"])
     if not row or not verify_password(body.current_password, row["password_hash"]):
-        raise HTTPException(status_code=401, detail="رمز فعلی نادرست است.")
+        raise HTTPException(status_code=401, detail="The current password is incorrect.")
     new_hash = hash_password(body.new_password)
     dsn = settings.postgres_dsn.replace("postgresql+psycopg2", "postgresql")
     import psycopg2
@@ -352,10 +352,10 @@ async def totp_setup_with_password(body: TotpSetupRequest, request: Request) -> 
     enforce_rate_limit(request, scope="totp_setup", limit=5, window_seconds=60)
     operator = get_operator_by_employee_code(body.employee_code)
     if not operator or not verify_password(body.password, operator["password_hash"]):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="کد کارمندی یا رمز عبور نادرست است.")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect employee code or password.")
     setup = generate_totp_setup(body.employee_code)
     if setup is None:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="تولید QR ناموفق بود.")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="QR generation failed.")
     _audit.log(
         event_type="auth",
         action="totp_setup",
@@ -371,7 +371,7 @@ async def totp_setup_with_password(body: TotpSetupRequest, request: Request) -> 
 async def totp_setup_authenticated(operator: dict = Depends(get_current_operator)) -> dict:
     setup = generate_totp_setup(operator["employee_code"])
     if setup is None:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="تولید QR ناموفق بود.")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="QR generation failed.")
     return setup
 
 
@@ -405,7 +405,7 @@ async def api_rate_limit_middleware(request: Request, call_next):
 
 
 # ---------------------------------------------------------------------
-# داشبورد مانیتورینگ (R-GEN-03)
+# Monitoring dashboard (R-GEN-03)
 # ---------------------------------------------------------------------
 @app.get("/sensors/latest")
 async def latest_sensor_reading(unit_id: int = 1, operator: dict = Depends(get_current_operator)) -> dict:
@@ -636,7 +636,7 @@ async def gateway_model_comparison(operator: dict = Depends(require_min_role("su
 
 @app.get("/metrics/latency")
 async def gateway_prediction_latency(operator: dict = Depends(get_current_operator)) -> dict:
-    """متریک تأخیر پیش‌بینی (فاز ۷ / NFR-PER-01)."""
+    """Prediction latency metric (phase 7 / NFR-PER-01)."""
     async with httpx.AsyncClient(timeout=5.0) as client:
         response = await client.get(
             f"{_INTERNAL_SERVICES['prediction']}/metrics/latency",
@@ -729,7 +729,7 @@ async def export_shift_reports(
 ) -> Response:
     fmt = format.lower().strip()
     if fmt not in {"pdf", "xlsx", "excel"}:
-        raise HTTPException(status_code=400, detail="فرمت باید pdf یا xlsx باشد.")
+        raise HTTPException(status_code=400, detail="Format must be pdf or xlsx.")
     if fmt == "excel":
         fmt = "xlsx"
     async with httpx.AsyncClient(timeout=30.0) as client:

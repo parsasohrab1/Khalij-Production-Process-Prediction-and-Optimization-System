@@ -1,13 +1,13 @@
-"""کمک‌کننده SLO/Uptime برای NFR-PER-02 (فاز ۸).
+"""SLO/Uptime helper for NFR-PER-02 (phase 8).
 
-هدف: ۹۹.۹۹٪ uptime ≈ حداکثر ~۰.۶ دقیقه downtime در هفته / ~۴.۳ دقیقه در ماه.
+Target: 99.99% uptime ≈ at most ~0.6 minutes of downtime per week / ~4.3 minutes per month.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
 
 
-# ثانیه در بازه‌های زمانی
+# seconds in time periods
 SECONDS_PER_DAY = 86400
 SECONDS_PER_WEEK = 7 * SECONDS_PER_DAY
 SECONDS_PER_MONTH = 30 * SECONDS_PER_DAY

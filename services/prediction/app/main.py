@@ -1,8 +1,8 @@
-"""سرویس پیش‌بینی و بهینه‌سازی (Prediction & Optimization) - FR-ML-01..03 + فاز ۳ MLOps.
+"""Prediction and optimization service (Prediction & Optimization) - FR-ML-01..03 + phase 3 MLOps.
 
-مصرف داده پردازش‌شده از Kafka، پیش‌بینی دمای راکتور طی افق ۶۰ ثانیه با مدل‌های
-آموزش‌دیده (XGBoost/MLP/LSTM)، مقایسه سیستماتیک، ثبت در MLflow Model Registry،
-تشخیص Drift و Re-training خودکار.
+Consumes processed data from Kafka, predicts the reactor temperature over a 60-second horizon with trained
+models (XGBoost/MLP/LSTM), systematic comparison, registration in the MLflow Model Registry,
+drift detection and automatic Re-training.
 """
 from __future__ import annotations
 
@@ -48,7 +48,7 @@ setup_tracing("prediction", app)
 _PREDICTION_BUDGET_MS = float(os.getenv("PREDICTION_LATENCY_BUDGET_MS", "2000"))
 _latency = LatencyTracker(budget_ms=_PREDICTION_BUDGET_MS)
 
-_HISTORY_WINDOW = 2000  # تاریخچه بزرگ‌تر برای آموزش batch و drift
+_HISTORY_WINDOW = 2000  # larger history for batch training and drift
 _N_LAGS = 10
 _HORIZON = 60
 _RETRAIN_EVERY_N_RECORDS = int(os.getenv("RETRAIN_EVERY_N_RECORDS", "300"))
@@ -89,7 +89,7 @@ _pipeline = TrainingPipeline(
     horizon=_HORIZON,
     psi_threshold=_PSI_THRESHOLD,
 )
-_recommender = EvolutionaryRecommender()  # نگه‌داری برای سازگاری API قدیمی / تست
+_recommender = EvolutionaryRecommender()  # kept for compatibility with the old API / tests
 _mv_optimizer = MultiVariableEvolutionaryOptimizer()
 _feedback_store = OptimizationFeedbackStore(settings.postgres_dsn)
 
@@ -115,7 +115,7 @@ def _run_training(unit_id: int, reason: str = "scheduled") -> dict:
         _stats["active_metrics"] = result["metrics"]
         _stats["active_version"] = result.get("version")
         _stats["last_comparison"] = result.get("comparison", [])
-        logger.info("آموزش کامل شد (reason=%s): %s", reason, result["best_model"])
+        logger.info("Training complete (reason=%s): %s", reason, result["best_model"])
     return result
 
 
@@ -129,7 +129,7 @@ def _predict_reactor_temp(unit_id: int) -> tuple[float, str]:
             result = (_linear_trend_forecast(series, _HORIZON), "linear_trend_fallback")
     if getattr(ctx, "elapsed_ms", 0) > _PREDICTION_BUDGET_MS:
         logger.warning(
-            "نقض بودجه تأخیر پیش‌بینی (NFR-PER-01): %.1fms > %.0fms unit=%s",
+            "Prediction latency budget violation (NFR-PER-01): %.1fms > %.0fms unit=%s",
             ctx.elapsed_ms,
             _PREDICTION_BUDGET_MS,
             unit_id,
@@ -175,7 +175,7 @@ class PredictionWorker:
         self._dlq.flush()
 
     def _consume_loop(self) -> None:
-        logger.info("مصرف‌کننده پیش‌بینی (فاز ۳: MLOps) شروع به کار کرد.")
+        logger.info("Prediction consumer (phase 3: MLOps) started.")
         while not self._stop.is_set():
             msg = self._consumer.poll(1.0)
             if msg is None:
@@ -183,7 +183,7 @@ class PredictionWorker:
             if msg.error():
                 if msg.error().code() == KafkaError._PARTITION_EOF:
                     continue
-                logger.error("خطای Kafka: %s", msg.error())
+                logger.error("Kafka error: %s", msg.error())
                 continue
             try:
                 reading = json.loads(msg.value().decode("utf-8"))
@@ -215,7 +215,7 @@ class PredictionWorker:
             try:
                 self._handle_reading(reading)
             except Exception:  # noqa: BLE001
-                logger.exception("پردازش رکورد پیش‌بینی ناموفق بود.")
+                logger.exception("Processing the prediction record failed.")
 
     def _handle_reading(self, reading: dict) -> None:
         unit_id = int(reading.get("unit_id", 1))
@@ -226,11 +226,11 @@ class PredictionWorker:
         _stats["records_since_train"] += 1
         _stats["records_since_drift_check"] += 1
 
-        # Re-training دوره‌ای
+        # Periodic Re-training
         if _stats["records_since_train"] >= _RETRAIN_EVERY_N_RECORDS:
             _run_training(unit_id, reason="scheduled")
 
-        # Drift Detection دوره‌ای
+        # Periodic Drift Detection
         if _stats["records_since_drift_check"] >= _DRIFT_CHECK_EVERY_N and _pipeline.drift.has_baseline:
             _stats["records_since_drift_check"] = 0
             series = list(_history[unit_id]["reactor_temp_c"])
@@ -273,8 +273,8 @@ class PredictionWorker:
         alert = {
             "level": "critical",
             "message": (
-                f"پیش‌بینی انحراف {prediction['deviation_percent']}٪ از دمای نامی راکتور "
-                f"(واحد {unit_id}) طی {_HORIZON} ثانیه آینده - FR-ML-02"
+                f"Predicted deviation of {prediction['deviation_percent']}% from the nominal reactor temperature "
+                f"(unit {unit_id}) over the next {_HORIZON} seconds - FR-ML-02"
             ),
             "sensor_tag": "reactor_temp_c",
             "predicted_value": prediction["predicted_reactor_temp_c"],
@@ -284,7 +284,7 @@ class PredictionWorker:
         }
         _stats["critical_alerts_raised"] += 1
         self._publish(settings.kafka_topic_alerts, alert)
-        logger.warning("هشدار بحرانی صادر شد: %s", alert["message"])
+        logger.warning("Critical alert issued: %s", alert["message"])
 
     def _recommend_loop(self) -> None:
         while not self._stop.is_set():
@@ -295,7 +295,7 @@ class PredictionWorker:
                 temp = series["reactor_temp_c"][-1]
                 pressure = series["reactor_pressure_bar"][-1] if series["reactor_pressure_bar"] else 25.0
                 feed = series["feed_flow_m3h"][-1]
-                # فاز ۴: بهینه‌سازی چندمتغیره با قیود ایمنی
+                # Phase 4: multivariable optimization with safety constraints
                 recommendation = _mv_optimizer.optimize(
                     reactor_temp_c=temp,
                     current_pressure_bar=pressure,
@@ -318,7 +318,7 @@ class PredictionWorker:
                         ex=600,
                     )
                 except Exception:  # noqa: BLE001
-                    logger.debug("کش Redis توصیه ناموفق بود.")
+                    logger.debug("Redis recommendation cache failed.")
 
     def _store_recommendation(self, unit_id: int, recommendation: dict) -> None:
         rec_id = _feedback_store.insert_recommendation(
@@ -335,7 +335,7 @@ class PredictionWorker:
                     ex=600,
                 )
             except Exception:  # noqa: BLE001
-                logger.debug("کش Redis توصیه ناموفق بود.")
+                logger.debug("Redis recommendation cache failed.")
 
     def _publish(self, topic: str, payload: dict) -> None:
         self._producer.produce(topic, value=json.dumps(payload, default=str).encode("utf-8"))
@@ -351,7 +351,7 @@ async def startup_event() -> None:
     _feedback_store.ensure_schema()
     _worker = PredictionWorker()
     _worker.start()
-    logger.info("سرویس Prediction (فاز ۷: مقیاس/کارایی) راه‌اندازی شد.")
+    logger.info("Prediction service (phase 7: scale/performance) started.")
 
 
 @app.on_event("shutdown")
@@ -375,7 +375,7 @@ async def health() -> dict:
 
 @app.get("/metrics/latency")
 async def prediction_latency() -> dict:
-    """متریک تأخیر پیش‌بینی نسبت به بودجه NFR-PER-01 (<۲ثانیه)."""
+    """Prediction latency metric against the NFR-PER-01 budget (<2 seconds)."""
     snap = _latency.snapshot()
     snap["nfr_per_01_budget_ms"] = _PREDICTION_BUDGET_MS
     snap["nfr_per_01_ok"] = (snap.get("p95_ms") or 0) <= _PREDICTION_BUDGET_MS
@@ -394,13 +394,13 @@ async def latest_recommendation() -> dict:
 
 @app.post("/train")
 async def trigger_training(unit_id: int = 1) -> dict:
-    """آموزش batch دستی با مقایسه مدل‌ها و ارتقا به Production."""
+    """Manual batch training with model comparison and promotion to Production."""
     return _run_training(unit_id, reason="manual_api")
 
 
 @app.get("/models/comparison")
 async def model_comparison() -> dict:
-    """نتیجه آخرین مقایسه XGBoost / MLP / LSTM."""
+    """Result of the latest XGBoost / MLP / LSTM comparison."""
     return {
         "active_model": _stats["active_model"],
         "active_metrics": _stats["active_metrics"],
@@ -427,7 +427,7 @@ async def preview_efficiency(reactor_temp_c: float, pressure_bar: float, feed_fl
 
 
 # ---------------------------------------------------------------------
-# فاز ۴: بهینه‌سازی چندمتغیره، What-if، حلقه بسته
+# Phase 4: multivariable optimization, What-if, closed loop
 # ---------------------------------------------------------------------
 class OptimizeRequest(BaseModel):
     reactor_temp_c: float
@@ -459,7 +459,7 @@ class FeedbackRequest(BaseModel):
 
 @app.post("/optimize")
 async def optimize_setpoints(body: OptimizeRequest) -> dict:
-    """بهینه‌سازی چندمتغیره دبی+فشار با قیود ایمنی سخت."""
+    """Multivariable feed flow + pressure optimization with hard safety constraints."""
     result = _mv_optimizer.optimize(
         reactor_temp_c=body.reactor_temp_c,
         current_pressure_bar=body.pressure_bar,
@@ -482,13 +482,13 @@ async def optimize_setpoints(body: OptimizeRequest) -> dict:
                     ex=600,
                 )
             except Exception:  # noqa: BLE001
-                logger.debug("کش Redis توصیه (API optimize) ناموفق بود.")
+                logger.debug("Redis recommendation cache (optimize API) failed.")
     return result
 
 
 @app.post("/optimize/whatif")
 async def optimize_whatif(body: WhatIfRequest) -> dict:
-    """شبیه‌سازی What-if پیش از اعمال توصیه توسط اپراتور."""
+    """What-if simulation before the operator applies a recommendation."""
     return simulate_whatif(
         reactor_temp_c=body.reactor_temp_c,
         current_pressure_bar=body.current_pressure_bar,
@@ -500,7 +500,7 @@ async def optimize_whatif(body: WhatIfRequest) -> dict:
 
 @app.post("/optimize/apply")
 async def apply_recommendation(body: ApplyRecommendationRequest) -> dict:
-    """اعمال توصیه پس از تأیید اپراتور (و در صورت نیاز What-if)."""
+    """Apply the recommendation after operator confirmation (and What-if if required)."""
     whatif_snapshot = None
     latest = _stats.get("latest_recommendation") or {}
     if body.run_whatif_first and latest.get("recommended") and latest.get("current"):
@@ -515,7 +515,7 @@ async def apply_recommendation(body: ApplyRecommendationRequest) -> dict:
             raise HTTPException(
                 status_code=400,
                 detail={
-                    "message": "توصیه قیود ایمنی را نقض می‌کند و قابل اعمال نیست.",
+                    "message": "The recommendation violates the safety constraints and cannot be applied.",
                     "whatif": whatif_snapshot,
                 },
             )
@@ -523,18 +523,18 @@ async def apply_recommendation(body: ApplyRecommendationRequest) -> dict:
         body.recommendation_id, body.operator_id, whatif_snapshot=whatif_snapshot
     )
     if not ok:
-        raise HTTPException(status_code=404, detail="توصیه یافت نشد یا قبلاً اعمال شده است.")
+        raise HTTPException(status_code=404, detail="The recommendation was not found or has already been applied.")
     return {"applied": True, "recommendation_id": body.recommendation_id, "whatif": whatif_snapshot}
 
 
 @app.post("/optimize/feedback")
 async def record_optimization_feedback(body: FeedbackRequest) -> dict:
-    """ثبت راندمان واقعی پس از اعمال توصیه (حلقه بسته)."""
+    """Record the actual efficiency after applying the recommendation (closed loop)."""
     result = _feedback_store.record_feedback(
         body.recommendation_id, body.actual_efficiency, operator_id=body.operator_id
     )
     if result is None:
-        raise HTTPException(status_code=404, detail="توصیه اعمال‌شده برای بازخورد یافت نشد.")
+        raise HTTPException(status_code=404, detail="The applied recommendation for feedback was not found.")
     return result
 
 

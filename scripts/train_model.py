@@ -1,6 +1,6 @@
-"""اسکریپت ریشه برای آموزش آفلاین مدل (فاز ۳).
+"""Root script for offline model training (phase 3).
 
-اجرا از ریشه پروژه:
+Run from the project root:
     python scripts/train_model.py --csv data/sample.csv --mlflow-uri http://localhost:5000
 """
 from __future__ import annotations
@@ -13,6 +13,6 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "services" / "prediction"))
 sys.path.insert(0, str(ROOT))
 
-# اجرای ماژول train_offline با همان argv
+# run the train_offline module with the same argv
 sys.argv[0] = str(ROOT / "services" / "prediction" / "app" / "train_offline.py")
 runpy.run_path(str(ROOT / "services" / "prediction" / "app" / "train_offline.py"), run_name="__main__")

@@ -1,7 +1,7 @@
-"""شبیه‌سازی What-if برای اپراتور پیش از اعمال توصیه (فاز ۴).
+"""What-if simulation for the operator before applying a recommendation (phase 4).
 
-اپراتور می‌تواند مقادیر پیشنهادی (یا دلخواه) را وارد کند و قبل از اعمال،
-راندمان تخمینی، قیود ایمنی، و ریسک را ببیند.
+The operator can enter the suggested (or desired) values and, before applying,
+see the estimated efficiency, safety constraints, and risk.
 """
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ def simulate_whatif(
     proposed_feed_flow: float,
     bounds: ProcessBounds | None = None,
 ) -> dict:
-    """شبیه‌سازی سناریوی پیشنهادی در برابر وضعیت فعلی."""
+    """Simulate the proposed scenario against the current state."""
     bounds = bounds or DEFAULT_BOUNDS
 
     current_eff = estimate_efficiency(reactor_temp_c, current_pressure_bar, current_feed_flow)
@@ -32,11 +32,11 @@ def simulate_whatif(
         bounds=bounds,
     )
 
-    # امتیاز ریسک ساده: ۰ امن، ۱ پرریسک
+    # simple risk score: 0 safe, 1 high risk
     risk = 0.0
     if violations:
         risk = min(1.0, 0.35 * len(violations))
-    # نزدیکی به مرز ایمنی نیز ریسک نرم ایجاد می‌کند
+    # proximity to the safety boundary also produces soft risk
     temp_margin = min(
         reactor_temp_c - bounds.reactor_temp_safe_min,
         bounds.reactor_temp_safe_max - reactor_temp_c,

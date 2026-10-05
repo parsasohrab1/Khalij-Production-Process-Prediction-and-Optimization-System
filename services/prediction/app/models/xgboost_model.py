@@ -1,4 +1,4 @@
-"""مدل XGBoost برای پیش‌بینی دمای خروجی راکتور طی افق ۶۰ ثانیه (FR-ML-01)."""
+"""XGBoost model for predicting the reactor outlet temperature over a 60-second horizon (FR-ML-01)."""
 from __future__ import annotations
 
 import numpy as np
@@ -28,7 +28,7 @@ class XGBoostTemperaturePredictor(BaseTemperaturePredictor):
 
     def predict(self, X: np.ndarray) -> np.ndarray:
         if not self._is_fitted:
-            raise RuntimeError("مدل هنوز آموزش داده نشده است؛ ابتدا fit را صدا بزنید.")
+            raise RuntimeError("The model has not been trained yet; call fit first.")
         return self._model.predict(X)
 
     def predict_from_history(self, history: list[float]) -> float:
@@ -44,7 +44,7 @@ class XGBoostTemperaturePredictor(BaseTemperaturePredictor):
 
     @staticmethod
     def build_training_set(series: list[float], n_lags: int = 10, horizon: int = 60) -> tuple[np.ndarray, np.ndarray]:
-        """ساخت مجموعه آموزشی (X, y) از یک سری زمانی یک‌بعدی."""
+        """Build the training set (X, y) from a one-dimensional time series."""
         X, y = [], []
         for i in range(n_lags, len(series) - horizon):
             X.append(series[i - n_lags : i])

@@ -1,27 +1,27 @@
-# Runbook پایلوت — Khalij POS (فاز ۱۰)
+# Pilot Runbook — Khalij POS (Phase 10)
 
-## ۱. هدف پایلوت
-اجرای ۱۴روزه روی **Olefin Unit 1** در حالت `shadow`/`assisted`: پیش‌بینی و توصیه فعال است؛ اعمال خودکار به DCS تا تأیید ایمنی ممنوع.
+## 1. Pilot goal
+A 14-day run on **Olefin Unit 1** in `shadow`/`assisted` mode: prediction and recommendation are active; automatic application to the DCS is forbidden until safety approval.
 
-پیکربندی مرجع: [`config/pilot.yaml`](../../config/pilot.yaml)
+Reference configuration: [`config/pilot.yaml`](../../config/pilot.yaml)
 
-## ۲. پیش از Go-Live (Gate)
+## 2. Before Go-Live (Gate)
 ```bash
 python scripts/pilot_readiness.py
 python scripts/test_phase10.py
 ```
-موارد اجباری:
-- [ ] رمزها و `JWT_SECRET_KEY` / `DATA_ENCRYPTION_KEY` / `INTERNAL_API_KEY` از مقادیر پیش‌فرض خارج شده‌اند
-- [ ] 2FA برای اپراتورهای شیفت فعال و QR ثبت شده
-- [ ] فایروال/VLAN بین OT و IT بررسی شده
-- [ ] آموزش اپراتور اتاق کنترل انجام شده
-- [ ] امضای سرپرست ایمنی (safety signoff)
+Mandatory items:
+- [ ] Passwords and `JWT_SECRET_KEY` / `DATA_ENCRYPTION_KEY` / `INTERNAL_API_KEY` changed from default values
+- [ ] 2FA enabled for shift operators and QR registered
+- [ ] Firewall/VLAN between OT and IT checked
+- [ ] Control room operator training completed
+- [ ] Safety supervisor sign-off
 
-## ۳. استقرار پایلوت
+## 3. Pilot deployment
 
 ### Docker Compose
 ```bash
-cp .env.example .env   # سپس مقادیر پایلوت را تنظیم کنید
+cp .env.example .env   # then set the pilot values
 docker compose -f docker-compose.yml -f docker-compose.pilot.yml up -d --build
 curl http://localhost:8000/health/services
 ```
@@ -33,54 +33,54 @@ kubectl -n khalij-pos get pods,svc,ingress
 # Host: https://pilot.pos.khalij.local
 ```
 
-### سوییچ به OPC-UA واقعی
-در `.env` یا ConfigMap:
+### Switch to real OPC-UA
+In `.env` or ConfigMap:
 ```
 DATA_SOURCE_MODE=opcua
 OPCUA_ENDPOINT_URL=opc.tcp://<dcs-host>:4840/...
 ```
-سپس فقط `data-ingestion` را ریستارت کنید و Circuit Breaker را مانیتور کنید.
+Then restart only `data-ingestion` and monitor the Circuit Breaker.
 
-## ۴. عملیات روزانه
-1. ورود داشبورد با 2FA → تب مانیتورینگ زنده
-2. بررسی هشدارهای Critical در اتاق کنترل
-3. اجرای What-if قبل از هر اعمال دستی توصیه
-4. در پایان شیفت: تولید گزارش + خروجی PDF/Excel
-5. بررسی `/observability/slo` و Grafana (در صورت فعال بودن)
+## 4. Daily operations
+1. Log in to the dashboard with 2FA → live monitoring tab
+2. Check Critical alerts in the control room
+3. Run What-if before every manual application of a recommendation
+4. At the end of the shift: generate the report + PDF/Excel export
+5. Check `/observability/slo` and Grafana (if enabled)
 
-## ۵. معیار موفقیت (خلاصه)
-| AC | نیاز | آستانه |
+## 5. Success criteria (summary)
+| AC | Requirement | Threshold |
 |----|------|--------|
-| AC-01 | نرخ داده | ≥ ۱ Hz |
-| AC-02 | تأخیر پیش‌بینی P95 | ≤ ۲۰۰۰ ms |
-| AC-03 | هشدار Critical | تحویل به اتاق کنترل |
-| AC-04 | Optimize ایمن | constraints_satisfied |
-| AC-05 | 2FA | اجباری |
-| AC-06 | Uptime | downtime هفتگی ≤ ۶۰.۵ s |
-| AC-07 | داشبورد | snapshot زنده |
-| AC-08 | گزارش شیفت | export OK |
+| AC-01 | Data rate | ≥ 1 Hz |
+| AC-02 | Prediction latency P95 | ≤ 2000 ms |
+| AC-03 | Critical alert | Delivered to the control room |
+| AC-04 | Safe Optimize | constraints_satisfied |
+| AC-05 | 2FA | Mandatory |
+| AC-06 | Uptime | weekly downtime ≤ 60.5 s |
+| AC-07 | Dashboard | live snapshot |
+| AC-08 | Shift report | export OK |
 
-جزئیات: [`ACCEPTANCE.md`](ACCEPTANCE.md)
+Details: [`ACCEPTANCE.md`](ACCEPTANCE.md)
 
-## ۶. Rollback (حداکثر ۳۰ دقیقه)
-1. `DATA_SOURCE_MODE=simulator` یا قطع ingestion از DCS
-2. Scale down prediction/alerting اگر نویز هشدار زیاد است
-3. بازگردانی revision قبلی:
+## 6. Rollback (maximum 30 minutes)
+1. `DATA_SOURCE_MODE=simulator` or cut ingestion from the DCS
+2. Scale down prediction/alerting if alert noise is high
+3. Restore the previous revision:
    ```bash
    kubectl -n khalij-pos rollout undo deployment/api-gateway
    kubectl -n khalij-pos rollout undo deployment/prediction
    ```
-4. اعلام به اتاق کنترل و ثبت در audit / گزارش حادثه
+4. Notify the control room and record in the audit / incident report
 
-## ۷. تماس اضطراری
-| نقش | مسئولیت |
+## 7. Emergency contacts
+| Role | Responsibility |
 |-----|---------|
-| سرپرست شیفت | تصمیم اعمال/توقف توصیه |
-| مالک محصول AI | پایداری مدل و drift |
-| OT/شبکه | ارتباط OPC-UA/Modbus |
-| امنیت | 2FA / کلیدها / audit |
+| Shift supervisor | Decides to apply/stop recommendations |
+| AI product owner | Model stability and drift |
+| OT/network | OPC-UA/Modbus connectivity |
+| Security | 2FA / keys / audit |
 
-## ۸. خروج از پایلوت
-- تکمیل گزارش [`REPORT_TEMPLATE.md`](REPORT_TEMPLATE.md)
-- همه AC پاس یا با waiver مستند
-- به‌روزرسانی runbook تولید و تصمیم Go/No-Go برای rollout گسترده‌تر
+## 8. Exiting the pilot
+- Complete the [`REPORT_TEMPLATE.md`](REPORT_TEMPLATE.md) report
+- All ACs passed or with a documented waiver
+- Update the production runbook and make a Go/No-Go decision for a wider rollout

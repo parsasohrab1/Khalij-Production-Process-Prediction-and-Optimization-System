@@ -1,8 +1,8 @@
-"""تشخیص Drift داده‌های ورودی برای تحریک Re-training (فاز ۳).
+"""Input data Drift detection to trigger Re-training (phase 3).
 
-از Population Stability Index (PSI) روی توزیع دمای راکتور استفاده می‌شود.
-اگر PSI از آستانه بگذرد، توزیع داده نسبت به baseline آموزش تغییر کرده و
-باید مدل دوباره آموزش ببیند.
+The Population Stability Index (PSI) is used on the reactor temperature distribution.
+If PSI exceeds the threshold, the data distribution has changed relative to the training baseline and
+the model must be retrained.
 """
 from __future__ import annotations
 
@@ -19,7 +19,7 @@ def population_stability_index(
     n_bins: int = 10,
     eps: float = 1e-6,
 ) -> float:
-    """محاسبه PSI بین دو توزیع یک‌بعدی."""
+    """Compute PSI between two one-dimensional distributions."""
     baseline = np.asarray(baseline, dtype=float)
     current = np.asarray(current, dtype=float)
     if len(baseline) < n_bins or len(current) < n_bins:
@@ -43,7 +43,7 @@ def population_stability_index(
 
 
 class DriftDetector:
-    """نگهداری baseline آموزش و تشخیص drift روی پنجره اخیر."""
+    """Keeps the training baseline and detects drift on the recent window."""
 
     def __init__(self, psi_threshold: float = 0.25, min_samples: int = 100):
         self.psi_threshold = psi_threshold
@@ -52,7 +52,7 @@ class DriftDetector:
 
     def set_baseline(self, series: list[float] | np.ndarray) -> None:
         self._baseline = np.asarray(series, dtype=float)
-        logger.info("Baseline drift با %d نمونه تنظیم شد.", len(self._baseline))
+        logger.info("Drift baseline set with %d samples.", len(self._baseline))
 
     @property
     def has_baseline(self) -> bool:
@@ -66,7 +66,7 @@ class DriftDetector:
         psi = population_stability_index(self._baseline, current)
         detected = psi >= self.psi_threshold
         if detected:
-            logger.warning("Drift تشخیص داده شد: PSI=%.4f (آستانه=%.2f)", psi, self.psi_threshold)
+            logger.warning("Drift detected: PSI=%.4f (threshold=%.2f)", psi, self.psi_threshold)
         return {
             "drift_detected": detected,
             "psi": round(psi, 4),

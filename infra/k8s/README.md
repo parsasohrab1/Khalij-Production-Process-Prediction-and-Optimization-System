@@ -1,52 +1,52 @@
-# Khalij POS — Kubernetes (فاز ۹)
+# Khalij POS — Kubernetes (phase 9)
 
-مانیفست‌های declarative با **Kustomize** برای استقرار روی کلاستر (kind / minikube / EKS / AKS / GKE).
+Declarative manifests with **Kustomize** for deployment on a cluster (kind / minikube / EKS / AKS / GKE).
 
-## ساختار
+## Structure
 
 ```
 infra/k8s/
-  base/                 # محیط پایه production-like
+  base/                 # production-like base environment
     apps/               # api-gateway, ingestion, preprocessing, prediction, alerting
     infra/              # postgres, redis, kafka, influxdb
     networking/         # Ingress TLS + NetworkPolicy
     autoscaling/        # HPA
-    observability/      # Prometheus با kubernetes_sd
-  overlays/dev/         # replicas کمتر برای توسعه
+    observability/      # Prometheus with kubernetes_sd
+  overlays/dev/         # fewer replicas for development
 ```
 
-## پیش‌نیاز
+## Prerequisites
 
 - Docker
 - `kubectl`
-- کلاستر محلی (مثلاً `kind create cluster`) یا کلاستر ابری
+- A local cluster (e.g., `kind create cluster`) or a cloud cluster
 - Ingress Controller (nginx): `kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml`
 
-## استقرار سریع
+## Quick deployment
 
 ```bash
 # Linux/macOS
 chmod +x scripts/deploy-k8s.sh
 ./scripts/deploy-k8s.sh          # base
-./scripts/deploy-k8s.sh dev      # overlay توسعه
+./scripts/deploy-k8s.sh dev      # development overlay
 
 # Windows PowerShell
 .\scripts\deploy-k8s.ps1
 .\scripts\deploy-k8s.ps1 -Overlay dev
 ```
 
-یا دستی:
+Or manually:
 
 ```bash
 cp infra/k8s/base/secrets.example.yaml infra/k8s/base/secrets.yaml
-# ویرایش secrets.yaml
+# edit secrets.yaml
 
 kubectl apply -k infra/k8s/base
-# یا
+# or
 kubectl apply -k infra/k8s/overlays/dev
 ```
 
-## تصاویر
+## Images
 
 ```
 khalij/api-gateway:latest
@@ -56,31 +56,31 @@ khalij/prediction:latest
 khalij/alerting:latest
 ```
 
-برای kind: پس از build، `kind load docker-image khalij/api-gateway:latest` (و بقیه).
+For kind: after the build, `kind load docker-image khalij/api-gateway:latest` (and the rest).
 
 ## Probes
 
-همه میکروسرویس‌ها:
+All microservices:
 
 - liveness: `GET /health/live`
 - readiness: `GET /health/ready`
 
-## مقیاس
+## Scaling
 
-HPA روی CPU برای gateway / ingestion / preprocessing / prediction / alerting.
+HPA on CPU for gateway / ingestion / preprocessing / prediction / alerting.
 
-Ingestion از `HOSTNAME` پاد برای شاردینگ (فاز ۷) استفاده می‌کند؛ `INGESTION_SHARD_COUNT` با تعداد replica هم‌تراز شود.
+Ingestion uses the pod `HOSTNAME` for sharding (phase 7); align `INGESTION_SHARD_COUNT` with the replica count.
 
 ## Ingress
 
 - Host: `pos.khalij.local`
 - TLS secret: `khalij-pos-tls`
-- در `/etc/hosts` یا CoreDNS: `pos.khalij.local` → IP اینگرس
+- In `/etc/hosts` or CoreDNS: `pos.khalij.local` → ingress IP
 
-## امنیت
+## Security
 
-- NetworkPolicy: data-plane فقط از داخل namespace
-- Secrets جدا از ConfigMap
-- `ENFORCE_PRODUCTION_SECRETS=true` در ConfigMap
+- NetworkPolicy: data-plane only from inside the namespace
+- Secrets separate from ConfigMap
+- `ENFORCE_PRODUCTION_SECRETS=true` in the ConfigMap
 
-⚠️ `secrets.example.yaml` را هرگز با مقادیر واقعی commit نکنید.
+⚠️ Never commit `secrets.example.yaml` with real values.

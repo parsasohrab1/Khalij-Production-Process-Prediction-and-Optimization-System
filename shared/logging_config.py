@@ -1,4 +1,4 @@
-"""پیکربندی یکسان لاگ برای همه سرویس‌ها (فاز ۸: JSON ساختاریافته)."""
+"""Uniform log configuration for all services (phase 8: structured JSON)."""
 from __future__ import annotations
 
 import json
@@ -30,7 +30,7 @@ class JsonFormatter(logging.Formatter):
 
 
 def configure_logging(service_name: str, level: str = "INFO") -> None:
-    """LOG_FORMAT=json|text — پیش‌فرض json در production، text در development."""
+    """LOG_FORMAT=json|text — default json in production, text in development."""
     fmt = os.getenv("LOG_FORMAT", "").strip().lower()
     env = os.getenv("ENVIRONMENT", "development").lower()
     use_json = fmt == "json" or (not fmt and env in {"production", "prod", "staging"})

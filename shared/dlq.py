@@ -1,7 +1,7 @@
-"""ارسال پیام‌های نامعتبر به Dead Letter Queue (فاز ۲).
+"""Send invalid messages to the Dead Letter Queue (phase 2).
 
-هر پیام خراب همراه با دلیل خطا، موضوع مبدأ، و زمان رد شدن به topic مربوط به DLQ
-ارسال می‌شود تا بدون مسدود کردن خط لوله اصلی قابل بررسی باشد.
+Each bad message, along with the error reason, source topic, and rejection time, is sent to the DLQ topic
+so it can be inspected without blocking the main pipeline.
 """
 from __future__ import annotations
 
@@ -43,9 +43,9 @@ class DeadLetterPublisher:
                 value=json.dumps(envelope, default=str).encode("utf-8"),
             )
             self._producer.poll(0)
-            logger.warning("پیام به DLQ ارسال شد (%s): %s", self.dlq_topic, error)
+            logger.warning("Message sent to DLQ (%s): %s", self.dlq_topic, error)
         except BufferError:
-            logger.error("صف DLQ پر است؛ پیام ردشده از دست رفت.")
+            logger.error("The DLQ queue is full; the rejected message was lost.")
 
     def flush(self, timeout: float = 5.0) -> None:
         self._producer.flush(timeout)

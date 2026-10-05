@@ -1,4 +1,4 @@
-"""متریک‌های Prometheus مشترک برای میکروسرویس‌ها (فاز ۸ / NFR-PER-02)."""
+"""Shared Prometheus metrics for the microservices (phase 8 / NFR-PER-02)."""
 from __future__ import annotations
 
 import time

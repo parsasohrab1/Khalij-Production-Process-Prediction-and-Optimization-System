@@ -1,4 +1,4 @@
-"""ابزار مقیاس‌پذیری افقی و اندازه‌گیری تأخیر (فاز ۷ / NFR-SCL-01, NFR-PER-01)."""
+"""Horizontal scaling and latency measurement utilities (phase 7 / NFR-SCL-01, NFR-PER-01)."""
 from __future__ import annotations
 
 import hashlib
@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 
 
 def parse_unit_ids(spec: str | None, default: list[int] | None = None) -> list[int]:
-    """پارس لیست واحدها: '1,2,3' یا '1-50' یا ترکیب '1-10,20,30-32'."""
+    """Parse the unit list: '1,2,3' or '1-50' or a combination '1-10,20,30-32'."""
     if not spec or not spec.strip():
         return list(default or [1])
     units: set[int] = set()
@@ -31,7 +31,7 @@ def parse_unit_ids(spec: str | None, default: list[int] | None = None) -> list[i
 
 
 def resolve_shard_id(shard_count: int, explicit: int | None = None) -> int:
-    """شناسه شارد این نمونه؛ از env یا هش hostname."""
+    """Shard ID of this instance; from env or hostname hash."""
     if explicit is not None:
         return int(explicit) % max(1, shard_count)
     raw = os.getenv("INGESTION_SHARD_ID") or os.getenv("SHARD_ID")
@@ -43,20 +43,20 @@ def resolve_shard_id(shard_count: int, explicit: int | None = None) -> int:
 
 
 def filter_units_for_shard(unit_ids: list[int], shard_count: int, shard_id: int) -> list[int]:
-    """تخصیص پایدار واحدها به شاردها برای مقیاس افقی ingestion."""
+    """Stable assignment of units to shards for horizontal ingestion scaling."""
     if shard_count <= 1:
         return list(unit_ids)
     return [u for u in unit_ids if u % shard_count == shard_id]
 
 
 def partition_key_for_unit(unit_id: int) -> str:
-    """کلید پارتیشن Kafka بر اساس unit_id برای توزیع یکنواخت."""
+    """Kafka partition key based on unit_id for uniform distribution."""
     return f"unit:{unit_id}"
 
 
 @dataclass
 class LatencyTracker:
-    """ردیاب تأخیر برای بودجه NFR-PER-01 (< ۲ ثانیه)."""
+    """Latency tracker for the NFR-PER-01 budget (< 2 seconds)."""
 
     budget_ms: float = 2000.0
     window: int = 500
@@ -127,7 +127,7 @@ class LatencyTracker:
 
 @dataclass
 class BackpressureController:
-    """بک‌پرشر ساده وقتی صف Kafka/بافر محلی پر می‌شود."""
+    """Simple backpressure when the Kafka queue / local buffer fills up."""
 
     high_watermark: int = 1000
     low_watermark: int = 200
@@ -135,7 +135,7 @@ class BackpressureController:
     pause_events: int = 0
 
     def update(self, queue_depth: int) -> bool:
-        """True اگر باید تولید/خوانش کند شود."""
+        """True if production/reading should slow down."""
         if queue_depth >= self.high_watermark:
             if not self._paused:
                 self.pause_events += 1

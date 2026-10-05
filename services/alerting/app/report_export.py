@@ -1,4 +1,4 @@
-"""خروجی گزارش بهینه‌سازی انرژی پایان شیفت به PDF و Excel (فاز ۵ / R-GEN-04)."""
+"""Export the end-of-shift energy optimization report to PDF and Excel (phase 5 / R-GEN-04)."""
 from __future__ import annotations
 
 import io
@@ -40,7 +40,7 @@ def fetch_shift_reports(dsn: str, limit: int = 50) -> list[dict]:
                 rows.append(item)
             return rows
     except Exception:  # noqa: BLE001
-        logger.exception("خوانش گزارش شیفت ناموفق بود.")
+        logger.exception("Reading the shift report failed.")
         return []
 
 
@@ -62,7 +62,7 @@ def fetch_shift_report(dsn: str, report_id: int) -> dict | None:
                     item[k] = item[k].isoformat()
             return item
     except Exception:  # noqa: BLE001
-        logger.exception("خوانش گزارش شیفت #%s ناموفق بود.", report_id)
+        logger.exception("Reading shift report #%s failed.", report_id)
         return None
 
 

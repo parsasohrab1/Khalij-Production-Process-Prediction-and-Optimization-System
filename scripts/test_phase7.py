@@ -1,6 +1,6 @@
-"""تست‌های واحد فاز ۷: مقیاس‌پذیری و کارایی (NFR-SCL-01 / NFR-PER-01).
+"""Phase 7 unit tests: scalability and performance (NFR-SCL-01 / NFR-PER-01).
 
-اجرا:
+Run:
     python scripts/test_phase7.py
 """
 from __future__ import annotations
@@ -54,7 +54,7 @@ def test_backpressure() -> None:
     bp = BackpressureController(high_watermark=10, low_watermark=3)
     assert bp.update(11) is True
     assert bp.paused is True
-    assert bp.update(5) is True  # هنوز بالای low
+    assert bp.update(5) is True  # still above low
     assert bp.update(2) is False
     assert bp.pause_events >= 1
     print("[OK] backpressure controller")
@@ -116,4 +116,4 @@ if __name__ == "__main__":
     test_health_module()
     test_compose_scale_file()
     test_influx_batch_api()
-    print("\nفاز ۷: همه تست‌های واحد پاس شدند.")
+    print("\nPhase 7: all unit tests passed.")

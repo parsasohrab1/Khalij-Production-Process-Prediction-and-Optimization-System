@@ -1,6 +1,6 @@
-"""تست‌های واحد فاز ۲: Schema Registry، Data Quality، DLQ envelope.
+"""Phase 2 unit tests: Schema Registry, Data Quality, DLQ envelope.
 
-اجرا:
+Run:
     python scripts/test_phase2.py
 """
 from __future__ import annotations

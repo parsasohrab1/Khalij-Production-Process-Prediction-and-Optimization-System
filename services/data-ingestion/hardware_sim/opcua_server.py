@@ -1,10 +1,10 @@
-"""سرور تست OPC-UA شبیه‌ساز DCS واحد الفین (فاز ۱).
+"""OPC-UA test server simulating the olefin unit DCS (phase 1).
 
-این سرور نودهایی با همان شناسه‌های تعریف‌شده در config/tag_mapping.yaml
-ایجاد می‌کند و هر ثانیه مقادیر سنسورها را با الگوی واقع‌گرایانه به‌روزرسانی
-می‌کند تا کلاینت data-ingestion بتواند بدون سخت‌افزار واقعی تست شود.
+This server creates nodes with the same identifiers defined in config/tag_mapping.yaml
+and updates sensor values every second with a realistic pattern
+so the data-ingestion client can be tested without real hardware.
 
-اجرا:
+Run:
     python -m hardware_sim.opcua_server
 """
 from __future__ import annotations
@@ -22,7 +22,7 @@ logger = logging.getLogger("opcua-sim")
 ENDPOINT = "opc.tcp://0.0.0.0:4840/khalij/olefin1/"
 NAMESPACE_URI = "http://khalij.holding/olefin1"
 
-# شناسه‌های نود مطابق tag_mapping.yaml
+# node identifiers per tag_mapping.yaml
 NODES = {
     "Reactor.Temperature": ("reactor_temp_c", 250.0),
     "Reactor.Pressure": ("reactor_pressure_bar", 25.0),
@@ -54,7 +54,7 @@ async def main() -> None:
     idx = await server.register_namespace(NAMESPACE_URI)
     objects = server.get_objects_node()
 
-    # ساخت سلسله‌مراتب اشیاء مطابق شناسه‌های tag_mapping
+    # build the object hierarchy per the tag_mapping identifiers
     reactor = await objects.add_object(idx, "Reactor")
     feed = await objects.add_object(idx, "Feed")
     tank = await objects.add_object(idx, "Tank")
@@ -73,15 +73,15 @@ async def main() -> None:
 
     for browse_path, (parent, name) in parent_map.items():
         _, initial = NODES[browse_path]
-        # استفاده از NodeId رشته‌ای (String NodeId) مطابق tag_mapping.yaml: ns=2;s=Reactor.Temperature
+        # use a string NodeId (String NodeId) per tag_mapping.yaml: ns=2;s=Reactor.Temperature
         node_id = ua.NodeId(browse_path, idx)
         var = await parent.add_variable(node_id, name, float(initial))
         await var.set_writable()
         variables[browse_path] = var
-        logger.info("نود ساخته شد: ns=%s;s=%s", idx, browse_path)
+        logger.info("Node created: ns=%s;s=%s", idx, browse_path)
 
     t0 = time.monotonic()
-    logger.info("سرور OPC-UA روی %s آماده است (namespace idx=%s).", ENDPOINT, idx)
+    logger.info("OPC-UA server is ready on %s (namespace idx=%s).", ENDPOINT, idx)
 
     async with server:
         while True:

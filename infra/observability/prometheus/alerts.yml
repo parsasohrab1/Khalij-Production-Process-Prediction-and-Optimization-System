@@ -8,8 +8,8 @@ groups:
           severity: critical
           nfr: NFR-PER-02
         annotations:
-          summary: "سرویس {{ $labels.job }} در دسترس نیست"
-          description: "هدف uptime ۹۹.۹۹٪ — سرویس بیش از ۱ دقیقه down بوده است."
+          summary: "Service {{ $labels.job }} is unavailable"
+          description: "Uptime target 99.99% — the service has been down for more than 1 minute."
 
       - alert: HighErrorRate
         expr: |
@@ -21,7 +21,7 @@ groups:
         labels:
           severity: warning
         annotations:
-          summary: "نرخ خطای بالای ۵٪ در {{ $labels.service }}"
+          summary: "Error rate above 5% in {{ $labels.service }}"
 
       - alert: HighPredictionLatency
         expr: |
@@ -33,7 +33,7 @@ groups:
           severity: warning
           nfr: NFR-PER-01
         annotations:
-          summary: "P95 تأخیر prediction بیش از ۲ ثانیه (NFR-PER-01)"
+          summary: "Prediction P95 latency above 2 seconds (NFR-PER-01)"
 
       - alert: ErrorBudgetBurn
         expr: |
@@ -44,4 +44,4 @@ groups:
           severity: critical
           nfr: NFR-PER-02
         annotations:
-          summary: "سوخت سریع بودجه خطای SLO ۹۹.۹۹٪ در ۱ ساعت اخیر"
+          summary: "Fast burn of the 99.99% SLO error budget in the last 1 hour"

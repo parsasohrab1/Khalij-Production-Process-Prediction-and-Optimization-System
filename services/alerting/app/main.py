@@ -1,8 +1,8 @@
-"""سرویس گزارش و هشدار (Alerting) - FR-ALERT-01, FR-ALERT-02, R-GEN-04.
+"""Reporting and alerting service (Alerting) - FR-ALERT-01, FR-ALERT-02, R-GEN-04.
 
-مصرف هشدارهای صادرشده توسط سرویس پیش‌بینی از Kafka و توزیع آن‌ها از طریق
-تلگرام، ایمیل و کش Redis (برای نمایش روی صفحه کنترل اتاق مرکزی)، همراه با
-ثبت دائمی در PostgreSQL و تولید خودکار گزارش بهینه‌سازی انرژی پایان شیفت.
+Consumes the alerts issued by the prediction service from Kafka and distributes them through
+Telegram, email and the Redis cache (for display on the central control room screen), along with
+permanent recording in PostgreSQL and automatic generation of the end-of-shift energy optimization report.
 """
 from __future__ import annotations
 
@@ -40,7 +40,7 @@ setup_tracing("alerting", app)
 
 _CONTROL_ROOM_CACHE_KEY = "control_room:recent_alerts"
 _CONTROL_ROOM_CACHE_SIZE = 200
-_SHIFT_CHECK_INTERVAL_S = 60  # هر دقیقه بررسی پایان شیفت
+_SHIFT_CHECK_INTERVAL_S = 60  # check for shift end every minute
 
 _stats = {
     "alerts_received": 0,
@@ -91,8 +91,8 @@ class AlertingWorker:
         self._consumer.close()
 
     def _shift_loop(self) -> None:
-        """در ابتدای هر شیفت جدید، گزارش شیفت قبلی را تولید می‌کند (R-GEN-04)."""
-        logger.info("زمان‌بند گزارش شیفت شروع به کار کرد.")
+        """At the start of each new shift, generates the previous shift report (R-GEN-04)."""
+        logger.info("Shift report scheduler started.")
         while not self._stop.is_set():
             try:
                 current_shift, _, _ = resolve_shift_window()
@@ -102,11 +102,11 @@ class AlertingWorker:
                         _stats["shift_reports_generated"] += 1
                 self._last_shift_checked = current_shift
             except Exception:  # noqa: BLE001
-                logger.exception("خطا در تولید گزارش شیفت.")
+                logger.exception("Error generating the shift report.")
             time.sleep(_SHIFT_CHECK_INTERVAL_S)
 
     def _run(self) -> None:
-        logger.info("مصرف‌کننده هشدار شروع به کار کرد.")
+        logger.info("Alert consumer started.")
         while not self._stop.is_set():
             msg = self._consumer.poll(1.0)
             if msg is None:
@@ -114,13 +114,13 @@ class AlertingWorker:
             if msg.error():
                 if msg.error().code() == KafkaError._PARTITION_EOF:
                     continue
-                logger.error("خطای Kafka: %s", msg.error())
+                logger.error("Kafka error: %s", msg.error())
                 continue
             try:
                 alert = json.loads(msg.value().decode("utf-8"))
                 self._handle_alert(alert)
             except Exception:  # noqa: BLE001
-                logger.exception("پردازش هشدار ناموفق بود.")
+                logger.exception("Processing the alert failed.")
 
     def _handle_alert(self, alert: dict) -> None:
         _stats["alerts_received"] += 1
@@ -131,24 +131,24 @@ class AlertingWorker:
         )
         message = (
             f"[{alert.get('level', 'info').upper()}] {alert.get('message')} "
-            f"(سنسور: {alert.get('sensor_tag')})"
+            f"(sensor: {alert.get('sensor_tag')})"
         )
 
         telegram_sent = self._telegram.send(message)
-        email_sent = self._email.send(subject=f"هشدار {alert.get('level', 'info')} - Khalij POS", message=message)
+        email_sent = self._email.send(subject=f"Alert {alert.get('level', 'info')} - Khalij POS", message=message)
         _stats["telegram_sent"] += int(telegram_sent)
         _stats["email_sent"] += int(email_sent)
 
         self._repository.insert_alert(alert, telegram_sent, email_sent)
 
-        # نمایش روی صفحه کنترل اتاق مرکزی: کش لیستی در Redis که داشبورد آن را می‌خواند
+        # Display on the central control room screen: a list cache in Redis that the dashboard reads
         try:
             self._redis.lpush(_CONTROL_ROOM_CACHE_KEY, json.dumps(alert, default=str))
             self._redis.ltrim(_CONTROL_ROOM_CACHE_KEY, 0, _CONTROL_ROOM_CACHE_SIZE - 1)
         except Exception:  # noqa: BLE001
-            logger.debug("به‌روزرسانی کش صفحه کنترل مرکزی ناموفق بود.")
+            logger.debug("Updating the central control screen cache failed.")
 
-        logger.info("هشدار پردازش شد: telegram=%s, email=%s", telegram_sent, email_sent)
+        logger.info("Alert processed: telegram=%s, email=%s", telegram_sent, email_sent)
 
 
 _worker: AlertingWorker | None = None
@@ -165,7 +165,7 @@ async def startup_event() -> None:
     global _worker
     _worker = AlertingWorker()
     _worker.start()
-    logger.info("سرویس Alerting راه‌اندازی شد.")
+    logger.info("Alerting service started.")
 
 
 @app.on_event("shutdown")
@@ -187,18 +187,18 @@ async def recent_alerts(limit: int = 50) -> list[dict]:
 @app.post("/alerts/{alert_id}/acknowledge")
 async def acknowledge_alert(alert_id: int, body: AcknowledgeRequest) -> dict:
     if not _worker:
-        raise HTTPException(status_code=503, detail="سرویس هنوز آماده نیست.")
+        raise HTTPException(status_code=503, detail="The service is not ready yet.")
     ok = _worker._repository.acknowledge_alert(alert_id, body.operator_id)
     if not ok:
-        raise HTTPException(status_code=404, detail="هشدار یافت نشد.")
+        raise HTTPException(status_code=404, detail="Alert not found.")
     return {"acknowledged": True, "alert_id": alert_id, "operator_id": body.operator_id}
 
 
 @app.post("/reports/shift/generate")
 async def generate_shift_report(unit_id: int = 1) -> dict:
-    """تولید دستی گزارش شیفت قبلی (R-GEN-04) — برای تست یا اجرای اضطراری."""
+    """Manually generate the previous shift report (R-GEN-04) — for testing or emergency run."""
     if not _worker:
-        raise HTTPException(status_code=503, detail="سرویس هنوز آماده نیست.")
+        raise HTTPException(status_code=503, detail="The service is not ready yet.")
     report = _worker._shift_reports.generate(unit_id=unit_id)
     if report is None:
         return {"status": "already_exists_or_empty", "unit_id": unit_id}
@@ -215,10 +215,10 @@ async def recent_shift_reports(limit: int = 20) -> list[dict]:
 
 @app.get("/reports/shift/export")
 async def export_shift_reports(format: str = "xlsx", limit: int = 50) -> Response:
-    """خروجی PDF یا Excel گزارش‌های شیفت (فاز ۵ / R-GEN-04)."""
+    """PDF or Excel export of shift reports (phase 5 / R-GEN-04)."""
     fmt = format.lower().strip()
     if fmt not in {"pdf", "xlsx", "excel"}:
-        raise HTTPException(status_code=400, detail="فرمت باید pdf یا xlsx باشد.")
+        raise HTTPException(status_code=400, detail="Format must be pdf or xlsx.")
     if fmt == "excel":
         fmt = "xlsx"
     reports = fetch_shift_reports(settings.postgres_dsn, limit=limit)

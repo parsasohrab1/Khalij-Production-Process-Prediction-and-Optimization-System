@@ -1,11 +1,11 @@
 # ==========================================================================
-# نگاشت تگ‌های DCS/PLC به متغیرهای فرایندی برای هر واحد (FR-DATA-01/02)
+# Mapping of DCS/PLC tags to process variables for each unit (FR-DATA-01/02)
 #
-# این فایل تنها یک بار در startup سرویس data-ingestion خوانده می‌شود.
-# برای اتصال به یک DCS واقعی، صرفاً کافی است:
-#   ۱. endpoint_url (OPC-UA) یا host/port (Modbus) را به آدرس واقعی سرور تغییر دهید
-#   ۲. مقادیر node_id / register را با Tag List واقعی DCS/PLC هماهنگ کنید
-# بدون نیاز به تغییر کد سرویس.
+# This file is read only once at the startup of the data-ingestion service.
+# To connect to a real DCS, it is enough to:
+#   1. change endpoint_url (OPC-UA) or host/port (Modbus) to the real server address
+#   2. align node_id / register values with the real DCS/PLC Tag List
+# without needing to change the service code.
 # ==========================================================================
 
 units:
@@ -25,7 +25,7 @@ units:
     modbus:
       host: "modbus-test-server"
       port: 5020
-      # آدرس رجیستر هولدینگ (Holding Register) برای هر متغیر
+      # Holding Register address for each variable
       registers:
         reactor_temp_c: 0
         reactor_pressure_bar: 1
@@ -33,7 +33,7 @@ units:
         tank_level_percent: 3
         ethylene_conc_percent: 4
         compressor_rpm: 5
-      # ضریب مقیاس برای تبدیل مقدار صحیح رجیستر (۱۶ بیتی) به مقدار اعشاری واقعی
+      # Scale factor to convert the register integer value (16-bit) to the real floating value
       scale:
         reactor_temp_c: 0.1
         reactor_pressure_bar: 0.1

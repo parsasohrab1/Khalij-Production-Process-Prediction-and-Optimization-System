@@ -1,4 +1,4 @@
-"""پخش زنده داده‌ها از طریق WebSocket برای داشبورد اپراتور (فاز ۵ / R-GEN-03)."""
+"""Live data broadcast over WebSocket for the operator dashboard (phase 5 / R-GEN-03)."""
 from __future__ import annotations
 
 import asyncio
@@ -24,7 +24,7 @@ def _validate_ws_token(token: str) -> dict | None:
         payload = jwt.decode(token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm])
         if payload.get("token_type") != "access":
             return None
-        # بررسی ابطال (logout)
+        # check for revocation (logout)
         jti = payload.get("jti")
         if jti:
             r = redis.from_url(settings.redis_url, decode_responses=True)
@@ -43,11 +43,11 @@ def _validate_ws_token(token: str) -> dict | None:
 
 @router.websocket("/ws/live")
 async def live_stream(websocket: WebSocket, token: str = "", unit_id: int = 1) -> None:
-    """استریم زنده سنسورها، پیش‌بینی، توصیه و هشدارهای اتاق کنترل."""
+    """Live stream of sensors, prediction, recommendation and control room alerts."""
     await websocket.accept()
     operator = _validate_ws_token(token)
     if operator is None:
-        await websocket.send_json({"type": "error", "message": "توکن نامعتبر است."})
+        await websocket.send_json({"type": "error", "message": "The token is invalid."})
         await websocket.close(code=4401)
         return
 
@@ -69,7 +69,7 @@ async def live_stream(websocket: WebSocket, token: str = "", unit_id: int = 1) -
                 "prediction": json.loads(prediction_raw) if prediction_raw else {},
                 "alerts": [json.loads(a) for a in alerts_raw],
             }
-            # توصیه از Redis اگر کش شده باشد
+            # the recommendation from Redis if cached
             rec_raw = r.get(f"latest_recommendation:{unit_id}")
             if rec_raw:
                 payload["recommendation"] = json.loads(rec_raw)
@@ -77,9 +77,9 @@ async def live_stream(websocket: WebSocket, token: str = "", unit_id: int = 1) -
             await websocket.send_json(payload)
             await asyncio.sleep(1.0)
     except WebSocketDisconnect:
-        logger.info("WebSocket قطع شد: %s", operator.get("employee_code"))
+        logger.info("WebSocket disconnected: %s", operator.get("employee_code"))
     except Exception:  # noqa: BLE001
-        logger.exception("خطا در استریم WebSocket")
+        logger.exception("Error in WebSocket stream")
         try:
             await websocket.close()
         except Exception:  # noqa: BLE001

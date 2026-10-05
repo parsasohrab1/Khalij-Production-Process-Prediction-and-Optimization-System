@@ -1,6 +1,6 @@
-"""نوشتن داده خام سنسورها در InfluxDB برای نگهداری ۵ ساله (R-GEN-02).
+"""Write raw sensor data to InfluxDB for 5-year retention (R-GEN-02).
 
-فاز ۷: نوشتن دسته‌ای (batch) برای throughput بالاتر.
+Phase 7: batch writing for higher throughput.
 """
 from __future__ import annotations
 
@@ -80,7 +80,7 @@ class InfluxRawWriter:
                 self._written += 1
             except Exception as exc:  # noqa: BLE001
                 self._errors += 1
-                logger.error("نوشتن async در InfluxDB ناموفق بود: %s", exc)
+                logger.error("Async write to InfluxDB failed: %s", exc)
                 raise
             return
 
@@ -101,7 +101,7 @@ class InfluxRawWriter:
             return len(points)
         except Exception as exc:  # noqa: BLE001
             self._errors += 1
-            logger.error("نوشتن batch در InfluxDB ناموفق بود: %s", exc)
+            logger.error("Batch write to InfluxDB failed: %s", exc)
             raise
 
     def flush(self) -> int:
@@ -118,7 +118,7 @@ class InfluxRawWriter:
             return len(points)
         except Exception as exc:  # noqa: BLE001
             self._errors += 1
-            logger.error("flush InfluxDB ناموفق بود: %s", exc)
+            logger.error("InfluxDB flush failed: %s", exc)
             with self._lock:
                 self._buffer = points + self._buffer
             raise

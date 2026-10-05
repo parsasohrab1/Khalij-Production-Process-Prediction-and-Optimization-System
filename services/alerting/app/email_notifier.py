@@ -1,4 +1,4 @@
-"""ارسال هشدار از طریق ایمیل (FR-ALERT-01)."""
+"""Send alerts via email (FR-ALERT-01)."""
 from __future__ import annotations
 
 import logging
@@ -28,7 +28,7 @@ class EmailNotifier:
 
     def send(self, subject: str, message: str) -> bool:
         if not self._enabled:
-            logger.debug("اعلان ایمیل غیرفعال است (تنظیمات SMTP کامل نیست).")
+            logger.debug("Email notification is disabled (SMTP settings are incomplete).")
             return False
         email = MIMEText(message, _charset="utf-8")
         email["Subject"] = subject
@@ -41,5 +41,5 @@ class EmailNotifier:
                 server.sendmail(self._from_address, self._to_addresses, email.as_string())
             return True
         except (smtplib.SMTPException, OSError) as exc:
-            logger.error("ارسال ایمیل هشدار ناموفق بود: %s", exc)
+            logger.error("Sending the alert email failed: %s", exc)
             return False

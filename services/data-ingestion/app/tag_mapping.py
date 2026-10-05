@@ -1,9 +1,9 @@
-"""بارگذاری نگاشت تگ‌های DCS/PLC از فایل پیکربندی (FR-DATA-01/02).
+"""Loading the DCS/PLC tag mapping from the configuration file (FR-DATA-01/02).
 
-این ماژول فایل YAML را می‌خواند و برای هر واحد، آدرس نودهای OPC-UA و
-رجیسترهای Modbus مربوط به هر متغیر سنسور را در اختیار کلاینت‌های پروتکل
-قرار می‌دهد. آدرس سرور (endpoint_url / host) با متغیرهای محیطی قابل بازنویسی
-است تا بدون تغییر فایل YAML بتوان بین محیط توسعه و DCS واقعی سوییچ کرد.
+This module reads the YAML file and, for each unit, provides the OPC-UA node addresses and
+Modbus registers of each sensor variable to the protocol clients. The server address
+(endpoint_url / host) can be overridden with environment variables
+so one can switch between the development environment and a real DCS without changing the YAML file.
 """
 from __future__ import annotations
 
@@ -40,10 +40,10 @@ class UnitTagMapping:
 
 
 def load_tag_mapping(config_path: Path | str | None = None) -> dict[int, UnitTagMapping]:
-    """خوانش فایل tag_mapping.yaml با امکان بازنویسی آدرس سرور از متغیرهای محیطی."""
+    """Read the tag_mapping.yaml file with the ability to override the server address from environment variables."""
     path = Path(config_path) if config_path else _DEFAULT_CONFIG_PATH
     if not path.exists():
-        raise FileNotFoundError(f"فایل نگاشت تگ یافت نشد: {path}")
+        raise FileNotFoundError(f"Tag mapping file not found: {path}")
 
     with path.open("r", encoding="utf-8") as f:
         raw: dict[str, Any] = yaml.safe_load(f) or {}

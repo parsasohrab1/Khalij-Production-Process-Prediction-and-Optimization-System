@@ -1,4 +1,4 @@
-"""بازخورد حلقه بسته: ثبت اعمال توصیه و تأثیر واقعی بر راندمان (فاز ۴)."""
+"""Closed-loop feedback: recording recommendation application and the real effect on efficiency (phase 4)."""
 from __future__ import annotations
 
 import json
@@ -16,7 +16,7 @@ def _pg_dsn(dsn: str) -> str:
 
 
 class OptimizationFeedbackStore:
-    """ذخیره توصیه‌های چندمتغیره، اعمال توسط اپراتور، و بازخورد راندمان واقعی."""
+    """Stores multivariable recommendations, application by the operator, and actual efficiency feedback."""
 
     def __init__(self, dsn: str):
         self._dsn = _pg_dsn(dsn)
@@ -25,7 +25,7 @@ class OptimizationFeedbackStore:
         return psycopg2.connect(self._dsn)
 
     def ensure_schema(self) -> None:
-        """افزودن ستون‌ها/جداول فاز ۴ در صورت نبود (migration سبک)."""
+        """Add phase 4 columns/tables if missing (light migration)."""
         ddl = """
         ALTER TABLE optimization_recommendations
             ADD COLUMN IF NOT EXISTS recommendation_json JSONB,
@@ -50,7 +50,7 @@ class OptimizationFeedbackStore:
                 cur.execute(ddl)
                 conn.commit()
         except Exception:  # noqa: BLE001
-            logger.exception("migration فاز ۴ برای optimization_recommendations ناموفق بود.")
+            logger.exception("Phase 4 migration for optimization_recommendations failed.")
 
     def insert_recommendation(self, unit_id: int, recommendation: dict, model_run_id: str | None = None) -> int | None:
         query = """
@@ -80,7 +80,7 @@ class OptimizationFeedbackStore:
                 conn.commit()
                 return row[0] if row else None
         except Exception:  # noqa: BLE001
-            logger.exception("ثبت توصیه چندمتغیره ناموفق بود.")
+            logger.exception("Recording the multivariable recommendation failed.")
             return None
 
     def apply_recommendation(self, recommendation_id: int, operator_id: int, whatif_snapshot: dict | None = None) -> bool:
@@ -113,11 +113,11 @@ class OptimizationFeedbackStore:
                 conn.commit()
                 return True
         except Exception:  # noqa: BLE001
-            logger.exception("اعمال توصیه ناموفق بود.")
+            logger.exception("Applying the recommendation failed.")
             return False
 
     def record_feedback(self, recommendation_id: int, actual_efficiency: float, operator_id: int | None = None) -> dict | None:
-        """ثبت راندمان واقعی پس از اعمال و محاسبه خطای پیش‌بینی."""
+        """Record the actual efficiency after application and compute the prediction error."""
         query = """
             UPDATE optimization_recommendations
             SET actual_efficiency = %s,
@@ -129,7 +129,7 @@ class OptimizationFeedbackStore:
         now = datetime.now(timezone.utc)
         try:
             with self._connect() as conn, conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-                # ابتدا expected را بخوانیم تا error دقیق محاسبه شود
+                # first read expected so the exact error can be computed
                 cur.execute(
                     "SELECT expected_efficiency FROM optimization_recommendations WHERE id = %s",
                     (recommendation_id,),
@@ -170,7 +170,7 @@ class OptimizationFeedbackStore:
                     "expected_efficiency_gain": updated["expected_efficiency_gain"],
                 }
         except Exception:  # noqa: BLE001
-            logger.exception("ثبت بازخورد راندمان ناموفق بود.")
+            logger.exception("Recording the efficiency feedback failed.")
             return None
 
     def feedback_summary(self, limit: int = 50) -> dict:
@@ -204,5 +204,5 @@ class OptimizationFeedbackStore:
                     recent.append(item)
                 return {"summary": summary, "recent_feedback": recent}
         except Exception:  # noqa: BLE001
-            logger.exception("خوانش خلاصه بازخورد ناموفق بود.")
+            logger.exception("Reading the feedback summary failed.")
             return {"summary": {}, "recent_feedback": []}

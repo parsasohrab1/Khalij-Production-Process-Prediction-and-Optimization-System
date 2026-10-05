@@ -1,4 +1,4 @@
-"""اندپوینت‌های liveness / readiness مشترک (فاز ۷ / NFR-PER-02)."""
+"""Shared liveness / readiness endpoints (phase 7 / NFR-PER-02)."""
 from __future__ import annotations
 
 from typing import Callable
@@ -14,9 +14,9 @@ def install_health_probes(
     details: Callable[[], dict] | None = None,
 ) -> None:
     """
-    /health/live  — فرایند زنده است
-    /health/ready — وابستگی‌ها آماده‌اند (برای orchestration)
-    /health       — سازگاری با نسخه‌های قبلی
+    /health/live  — the process is alive
+    /health/ready — dependencies are ready (for orchestration)
+    /health       — compatibility with previous versions
     """
 
     @app.get("/health/live")

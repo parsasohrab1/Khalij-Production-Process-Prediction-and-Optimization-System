@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>اتاق عملیات — Khalij POS</title>
+  <title>Operations Room — Khalij POS</title>
   <style>
     :root {
       --bg: #0b121a;
@@ -193,40 +193,40 @@
 <body>
   <header>
     <div>
-      <h1><span class="status-dot" id="live-dot"></span>Khalij POS — اتاق عملیات</h1>
-      <div class="sub">فاز ۵ · R-GEN-03 / R-GEN-04 · WebSocket زنده · 2FA</div>
+      <h1><span class="status-dot" id="live-dot"></span>Khalij POS — Operations Room</h1>
+      <div class="sub">Phase 5 · R-GEN-03 / R-GEN-04 · Live WebSocket · 2FA</div>
     </div>
     <div class="auth" id="auth-box">
-      <input id="emp" placeholder="کد کارمندی" value="demo-admin" />
-      <input id="pwd" type="password" placeholder="رمز عبور" value="ChangeMe123!" />
+      <input id="emp" placeholder="Employee code" value="demo-admin" />
+      <input id="pwd" type="password" placeholder="Password" value="ChangeMe123!" />
       <input id="otp" placeholder="OTP" style="width:5.5rem" />
-      <button id="btn-login">ورود</button>
-      <button id="btn-logout" class="secondary hidden">خروج</button>
+      <button id="btn-login">Log in</button>
+      <button id="btn-logout" class="secondary hidden">Log out</button>
     </div>
   </header>
 
   <nav class="tabs" id="tabs">
-    <button data-view="monitor" class="active">مانیتورینگ</button>
-    <button data-view="control">اتاق کنترل</button>
-    <button data-view="optimize">بهینه‌سازی</button>
-    <button data-view="reports">گزارش شیفت</button>
-    <button data-view="security">امنیت 2FA</button>
+    <button data-view="monitor" class="active">Monitoring</button>
+    <button data-view="control">Control room</button>
+    <button data-view="optimize">Optimization</button>
+    <button data-view="reports">Shift report</button>
+    <button data-view="security">2FA security</button>
   </nav>
-  <p id="status-msg">برای مشاهده داده‌ها وارد شوید (2FA اجباری — NFR-SEC-01).</p>
+  <p id="status-msg">Log in to view data (2FA mandatory — NFR-SEC-01).</p>
 
   <main>
     <section class="view active" id="view-monitor">
       <div class="grid">
         <div class="panel">
-          <h2>سنسورهای زنده <span class="badge" id="ws-badge">قطع</span></h2>
+          <h2>Live sensors <span class="badge" id="ws-badge">Disconnected</span></h2>
           <div id="sensors">—</div>
         </div>
         <div class="panel">
-          <h2>پیش‌بینی دما (۶۰ ثانیه)</h2>
+          <h2>Temperature prediction (60 seconds)</h2>
           <div id="prediction">—</div>
         </div>
         <div class="panel">
-          <h2>توصیه بهینه‌سازی</h2>
+          <h2>Optimization recommendation</h2>
           <div id="recommendation">—</div>
         </div>
       </div>
@@ -235,8 +235,8 @@
     <section class="view" id="view-control">
       <div class="grid">
         <div class="panel wide">
-          <h2>هشدارهای پیش‌بینی‌شده (اتاق کنترل)</h2>
-          <div id="alerts">هنوز هشداری نیست.</div>
+          <h2>Predicted alerts (control room)</h2>
+          <div id="alerts">No alerts yet.</div>
         </div>
       </div>
     </section>
@@ -244,29 +244,29 @@
     <section class="view" id="view-optimize">
       <div class="grid">
         <div class="panel">
-          <h2>بهینه‌سازی چندمتغیره</h2>
+          <h2>Multivariable optimization</h2>
           <div class="form-grid">
-            <label>دما (°C)<input id="opt-temp" type="number" value="250" step="0.1" /></label>
-            <label>فشار (bar)<input id="opt-p" type="number" value="28" step="0.1" /></label>
-            <label>دبی (m³/h)<input id="opt-f" type="number" value="380" step="1" /></label>
+            <label>Temperature (°C)<input id="opt-temp" type="number" value="250" step="0.1" /></label>
+            <label>Pressure (bar)<input id="opt-p" type="number" value="28" step="0.1" /></label>
+            <label>Flow (m³/h)<input id="opt-f" type="number" value="380" step="1" /></label>
           </div>
           <div class="row" style="margin-top:0.75rem">
-            <button id="btn-optimize">اجرای Optimize</button>
+            <button id="btn-optimize">Run Optimize</button>
             <button id="btn-whatif" class="secondary">What-if</button>
           </div>
           <div class="form-grid" style="margin-top:0.75rem">
-            <label>فشار پیشنهادی<input id="wi-p" type="number" value="25" step="0.1" /></label>
-            <label>دبی پیشنهادی<input id="wi-f" type="number" value="320" step="1" /></label>
-            <label>شناسه توصیه<input id="apply-id" type="number" placeholder="recommendation_id" /></label>
-            <label>راندمان واقعی<input id="fb-eff" type="number" value="72.5" step="0.1" /></label>
+            <label>Proposed pressure<input id="wi-p" type="number" value="25" step="0.1" /></label>
+            <label>Proposed flow<input id="wi-f" type="number" value="320" step="1" /></label>
+            <label>Recommendation ID<input id="apply-id" type="number" placeholder="recommendation_id" /></label>
+            <label>Actual efficiency<input id="fb-eff" type="number" value="72.5" step="0.1" /></label>
           </div>
           <div class="row" style="margin-top:0.75rem">
-            <button id="btn-apply" class="secondary">اعمال توصیه</button>
-            <button id="btn-feedback" class="secondary">ثبت بازخورد</button>
+            <button id="btn-apply" class="secondary">Apply recommendation</button>
+            <button id="btn-feedback" class="secondary">Record feedback</button>
           </div>
         </div>
         <div class="panel">
-          <h2>نتیجه</h2>
+          <h2>Result</h2>
           <pre class="out" id="opt-out">—</pre>
         </div>
       </div>
@@ -275,12 +275,12 @@
     <section class="view" id="view-reports">
       <div class="grid">
         <div class="panel wide">
-          <h2>گزارش بهینه‌سازی انرژی شیفت (R-GEN-04)</h2>
+          <h2>Shift energy optimization report (R-GEN-04)</h2>
           <div class="row" style="margin-bottom:0.75rem">
-            <button id="btn-gen-report" class="secondary">تولید گزارش شیفت</button>
-            <button id="btn-export-xlsx">خروجی Excel</button>
-            <button id="btn-export-pdf" class="secondary">خروجی PDF</button>
-            <button id="btn-refresh-reports" class="secondary">بروزرسانی</button>
+            <button id="btn-gen-report" class="secondary">Generate shift report</button>
+            <button id="btn-export-xlsx">Export Excel</button>
+            <button id="btn-export-pdf" class="secondary">Export PDF</button>
+            <button id="btn-refresh-reports" class="secondary">Refresh</button>
           </div>
           <div id="shift-reports">—</div>
         </div>
@@ -290,21 +290,21 @@
     <section class="view" id="view-security">
       <div class="grid">
         <div class="panel">
-          <h2>ثبت Authenticator (QR)</h2>
+          <h2>Authenticator registration (QR)</h2>
           <p style="color:var(--muted);font-size:0.85rem;margin-top:0">
-            رمز عبور را تأیید کنید تا QR برای Google Authenticator / Authy ساخته شود.
+            Confirm your password to generate the QR for Google Authenticator / Authy.
           </p>
           <div class="row">
-            <button id="btn-qr">نمایش QR</button>
+            <button id="btn-qr">Show QR</button>
           </div>
           <div class="qr-box" id="qr-box" style="margin-top:1rem"></div>
         </div>
         <div class="panel">
-          <h2>راهنما</h2>
+          <h2>Guide</h2>
           <ol style="color:var(--muted);font-size:0.88rem;line-height:1.7;padding-right:1.1rem;margin:0">
-            <li>روی «نمایش QR» کلیک کنید.</li>
-            <li>QR را با اپ Authenticator اسکن کنید.</li>
-            <li>کد ۶ رقمی را در ورود وارد کنید.</li>
+            <li>Click "Show QR".</li>
+            <li>Scan the QR with the Authenticator app.</li>
+            <li>Enter the 6-digit code at login.</li>
           </ol>
         </div>
       </div>
@@ -335,7 +335,7 @@
     }
 
     function kv(obj, keys) {
-      if (!obj || Object.keys(obj).length === 0) return "داده‌ای موجود نیست.";
+      if (!obj || Object.keys(obj).length === 0) return "No data available.";
       return keys.map(([k, label]) => {
         let v = obj[k];
         if (v == null && obj.recommended && typeof obj.recommended === "object") {
@@ -348,22 +348,22 @@
 
     function renderSensors(sensors) {
       $("sensors").innerHTML = kv(sensors, [
-        ["reactor_temp_c", "دمای راکتور (°C)"],
-        ["reactor_pressure_bar", "فشار (bar)"],
-        ["feed_flow_m3h", "دبی خوراک (m³/h)"],
-        ["tank_level_percent", "سطح مخزن (%)"],
-        ["ethylene_conc_percent", "اتیلن (%)"],
-        ["compressor_rpm", "دور کمپرسور"],
+        ["reactor_temp_c", "Reactor temperature (°C)"],
+        ["reactor_pressure_bar", "Pressure (bar)"],
+        ["feed_flow_m3h", "Feed flow (m³/h)"],
+        ["tank_level_percent", "Tank level (%)"],
+        ["ethylene_conc_percent", "Ethylene (%)"],
+        ["compressor_rpm", "Compressor RPM"],
       ]);
     }
 
     function renderPrediction(prediction) {
       $("prediction").innerHTML = kv(prediction, [
-        ["predicted_reactor_temp_c", "دمای پیش‌بینی‌شده (°C)"],
-        ["nominal_reactor_temp_c", "دمای نامی (°C)"],
-        ["deviation_percent", "انحراف (%)"],
-        ["horizon_seconds", "افق (ثانیه)"],
-        ["model_name", "مدل"],
+        ["predicted_reactor_temp_c", "Predicted temperature (°C)"],
+        ["nominal_reactor_temp_c", "Nominal temperature (°C)"],
+        ["deviation_percent", "Deviation (%)"],
+        ["horizon_seconds", "Horizon (seconds)"],
+        ["model_name", "Model"],
       ]);
     }
 
@@ -371,12 +371,12 @@
       const rec = recommendation || {};
       const nested = rec.recommended || {};
       $("recommendation").innerHTML = kv({ ...rec, ...nested }, [
-        ["feed_flow_m3h", "دبی پیشنهادی"],
-        ["pressure_bar", "فشار پیشنهادی"],
-        ["expected_efficiency_gain", "بهبود راندمان (%)"],
-        ["algorithm", "الگوریتم"],
-        ["recommendation_id", "شناسه توصیه"],
-        ["constraints_satisfied", "قیود ایمنی"],
+        ["feed_flow_m3h", "Proposed flow"],
+        ["pressure_bar", "Proposed pressure"],
+        ["expected_efficiency_gain", "Efficiency improvement (%)"],
+        ["algorithm", "Algorithm"],
+        ["recommendation_id", "Recommendation ID"],
+        ["constraints_satisfied", "Safety constraints"],
       ]);
       if (rec.recommendation_id) $("apply-id").value = rec.recommendation_id;
     }
@@ -388,7 +388,7 @@
            <br/><span style="color:var(--muted)">${a.raised_at || ""} · ${a.sensor_tag || ""}</span></div>`
         ).join("");
       } else {
-        $("alerts").textContent = "هنوز هشداری نیست.";
+        $("alerts").textContent = "No alerts yet.";
       }
     }
 
@@ -398,8 +398,8 @@
       if (data.recommendation) renderRecommendation(data.recommendation);
       renderAlerts(data.alerts || []);
       $("live-dot").classList.add("on");
-      $("ws-badge").textContent = "زنده";
-      $("status-msg").textContent = "به‌روزرسانی زنده: " + new Date(data.timestamp || Date.now()).toLocaleString("fa-IR");
+      $("ws-badge").textContent = "Live";
+      $("status-msg").textContent = "Live update: " + new Date(data.timestamp || Date.now()).toLocaleString("fa-IR");
     }
 
     function connectWs() {
@@ -411,14 +411,14 @@
       const url = `${proto}://${location.host}/ws/live?token=${encodeURIComponent(token)}&unit_id=1`;
       ws = new WebSocket(url);
       ws.onopen = () => {
-        $("ws-badge").textContent = "متصل";
+        $("ws-badge").textContent = "Connected";
         $("live-dot").classList.add("on");
       };
       ws.onmessage = (ev) => {
         try {
           const data = JSON.parse(ev.data);
           if (data.type === "error") {
-            $("status-msg").textContent = data.message || "خطای WebSocket";
+            $("status-msg").textContent = data.message || "WebSocket error";
             return;
           }
           if (data.type === "snapshot") applySnapshot(data);
@@ -427,7 +427,7 @@
         }
       };
       ws.onclose = () => {
-        $("ws-badge").textContent = "قطع";
+        $("ws-badge").textContent = "Disconnected";
         $("live-dot").classList.remove("on");
         if (token) setTimeout(connectWs, 3000);
       };
@@ -446,7 +446,7 @@
         applySnapshot({ sensors, prediction, recommendation, alerts, timestamp: new Date().toISOString() });
         $("ws-badge").textContent = "HTTP";
       } catch (e) {
-        $("status-msg").textContent = "خطا: " + e.message;
+        $("status-msg").textContent = "Error: " + e.message;
       }
     }
 
@@ -455,12 +455,12 @@
       try {
         const reports = await api("/reports/shift/recent?limit=20");
         if (!Array.isArray(reports) || !reports.length) {
-          $("shift-reports").textContent = "گزارشی ثبت نشده است.";
+          $("shift-reports").textContent = "No report has been recorded.";
           return;
         }
         $("shift-reports").innerHTML = `
           <table class="reports">
-            <thead><tr><th>ID</th><th>شیفت</th><th>راندمان</th><th>صرفه‌جویی kWh</th><th>خلاصه</th></tr></thead>
+            <thead><tr><th>ID</th><th>Shift</th><th>Efficiency</th><th>Savings kWh</th><th>Summary</th></tr></thead>
             <tbody>
               ${reports.map(r => `<tr>
                 <td>${r.id ?? ""}</td>
@@ -472,7 +472,7 @@
             </tbody>
           </table>`;
       } catch (e) {
-        $("shift-reports").textContent = "خطا: " + e.message;
+        $("shift-reports").textContent = "Error: " + e.message;
       }
     }
 
@@ -509,7 +509,7 @@
     }
 
     async function login() {
-      $("status-msg").textContent = "در حال ورود...";
+      $("status-msg").textContent = "Logging in...";
       try {
         if (!pendingToken) {
           const res = await api("/auth/login", {
@@ -518,7 +518,7 @@
           });
           if (res.requires_otp) {
             pendingToken = res.pending_token;
-            $("status-msg").textContent = "رمز عبور تأیید شد. کد OTP را وارد کنید (یا از تب امنیت QR بگیرید).";
+            $("status-msg").textContent = "Password confirmed. Enter the OTP code (or get it from the QR security tab).";
             return;
           }
           token = res.access_token;
@@ -531,11 +531,11 @@
           pendingToken = "";
         }
         localStorage.setItem("khalij_token", token);
-        $("status-msg").textContent = "ورود موفق.";
+        $("status-msg").textContent = "Login successful.";
         setLoggedIn(true);
       } catch (e) {
         pendingToken = "";
-        $("status-msg").textContent = "ورود ناموفق: " + e.message;
+        $("status-msg").textContent = "Login failed: " + e.message;
       }
     }
 
@@ -551,7 +551,7 @@
     $("btn-login").onclick = login;
     $("btn-logout").onclick = () => {
       setLoggedIn(false);
-      $("status-msg").textContent = "خارج شدید.";
+      $("status-msg").textContent = "You have logged out.";
     };
 
     $("btn-optimize").onclick = async () => {
@@ -632,12 +632,12 @@
           <p class="secret">${setup.otp_secret || ""}</p>
           <p style="color:var(--muted);font-size:0.8rem">${setup.instructions || ""}</p>`;
       } catch (e) {
-        $("qr-box").textContent = "خطا: " + e.message;
+        $("qr-box").textContent = "Error: " + e.message;
       }
     };
 
     if (token) {
-      $("status-msg").textContent = "نشست قبلی بازیابی شد.";
+      $("status-msg").textContent = "Previous session restored.";
       setLoggedIn(true);
     }
   </script>

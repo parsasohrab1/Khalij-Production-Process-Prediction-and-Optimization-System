@@ -1,6 +1,6 @@
-"""ثبت لاگ کلیه هشدارها با زمان دقیق و شناسه اپراتور پاسخ‌دهنده (FR-ALERT-02).
+"""Log all alerts with the exact time and the ID of the responding operator (FR-ALERT-02).
 
-متن هشدار با AES-256-GCM رمزنگاری می‌شود (NFR-SEC-02) پیش از ذخیره در PostgreSQL.
+The alert text is encrypted with AES-256-GCM (NFR-SEC-02) before being stored in PostgreSQL.
 """
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 class AlertRepository:
     def __init__(self, dsn: str):
-        # psycopg2 از پیشوند SQLAlchemy (postgresql+psycopg2) پشتیبانی نمی‌کند
+        # psycopg2 does not support the SQLAlchemy prefix (postgresql+psycopg2)
         self._dsn = dsn.replace("postgresql+psycopg2", "postgresql")
 
     def _connect(self):
@@ -50,7 +50,7 @@ class AlertRepository:
                 row = cur.fetchone()
                 return row[0] if row else None
         except Exception:  # noqa: BLE001
-            logger.exception("ثبت هشدار در PostgreSQL ناموفق بود.")
+            logger.exception("Recording the alert in PostgreSQL failed.")
             return None
 
     def acknowledge_alert(self, alert_id: int, operator_id: int) -> bool:
@@ -62,7 +62,7 @@ class AlertRepository:
                 cur.execute(query, (operator_id, alert_id))
                 return cur.rowcount > 0
         except Exception:  # noqa: BLE001
-            logger.exception("ثبت پاسخ اپراتور به هشدار ناموفق بود.")
+            logger.exception("Recording the operator's response to the alert failed.")
             return False
 
     def fetch_recent(self, limit: int = 50) -> list[dict]:
@@ -83,9 +83,9 @@ class AlertRepository:
                     try:
                         item["message"] = decrypt_at_rest(item["message"] or "")
                     except RuntimeError:
-                        pass  # در صورت نبود کلید، مقدار رمزشده را همان‌طور برمی‌گرداند
+                        pass  # if no key, returns the encrypted value as is
                     rows.append(item)
                 return rows
         except Exception:  # noqa: BLE001
-            logger.exception("خوانش هشدارهای اخیر از PostgreSQL ناموفق بود.")
+            logger.exception("Reading recent alerts from PostgreSQL failed.")
             return []

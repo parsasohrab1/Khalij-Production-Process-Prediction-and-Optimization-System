@@ -1,16 +1,16 @@
-# قالب گزارش پایان پایلوت — Khalij POS
+# Pilot End Report Template — Khalij POS
 
-- **نام پایلوت:** khalij-pos-olefin-pilot
-- **بازه:** از ____ تا ____ (۱۴ روز هدف)
-- **واحد:** Olefin Unit 1
-- **حالت:** shadow / assisted
-- **نسخه نرم‌افزار / تصویر:** __________
+- **Pilot name:** khalij-pos-olefin-pilot
+- **Period:** from ____ to ____ (14-day target)
+- **Unit:** Olefin Unit 1
+- **Mode:** shadow / assisted
+- **Software / image version:** __________
 
-## خلاصه اجرایی
-(۳–۵ جمله: آیا اهداف محقق شد؟ ریسک باقی‌مانده؟ توصیه Go/No-Go)
+## Executive summary
+(3–5 sentences: were the goals achieved? Remaining risk? Go/No-Go recommendation)
 
-## نتایج معیارهای پذیرش
-| AC | نتیجه | توضیح |
+## Acceptance criteria results
+| AC | Result | Description |
 |----|--------|--------|
 | AC-01 | | |
 | AC-02 | | |
@@ -21,21 +21,21 @@
 | AC-07 | | |
 | AC-08 | | |
 
-## متریک‌های کلیدی
-- نرخ متوسط ingestion (Hz):
-- P95 latency پیش‌بینی (ms):
-- تعداد هشدار Critical:
-- تعداد توصیه‌های اعمال‌شده دستی:
-- downtime تجمعی (s):
-- حوادث امنیتی / lockout:
+## Key metrics
+- Average ingestion rate (Hz):
+- Prediction P95 latency (ms):
+- Number of Critical alerts:
+- Number of manually applied recommendations:
+- Cumulative downtime (s):
+- Security incidents / lockouts:
 
-## حوادث و درس‌آموخته‌ها
+## Incidents and lessons learned
 1.
 2.
 
-## تصمیم
-- [ ] گسترش به واحد بعدی
-- [ ] تمدید پایلوت
-- [ ] توقف تا رفع بلاکرها
+## Decision
+- [ ] Expand to the next unit
+- [ ] Extend the pilot
+- [ ] Stop until blockers are resolved
 
-**امضا محصول:** __________  **امضا عملیات:** __________  **امضا ایمنی:** __________
+**Product signature:** __________  **Operations signature:** __________  **Safety signature:** __________

@@ -1,4 +1,4 @@
-"""مدل‌های داده مشترک (Pydantic) که بین سرویس‌ها از طریق Kafka/REST مبادله می‌شوند."""
+"""Shared data models (Pydantic) exchanged between services through Kafka/REST."""
 from datetime import datetime
 from enum import Enum
 from typing import Optional
@@ -13,7 +13,7 @@ class AlertLevel(str, Enum):
 
 
 class SensorReading(BaseModel):
-    """یک رکورد خام دریافتی از OPC-UA/Modbus مطابق FR-DATA-02."""
+    """A raw record received from OPC-UA/Modbus per FR-DATA-02."""
 
     timestamp: datetime
     unit_id: int = 1
@@ -40,7 +40,7 @@ class SensorReading(BaseModel):
 
 
 class ProcessedReading(SensorReading):
-    """خروجی ماژول پیش‌پردازش پس از حذف پرت، درون‌یابی و نرمال‌سازی (FR-PRE-01..03)."""
+    """Preprocessing module output after outlier removal, interpolation and normalization (FR-PRE-01..03)."""
 
     is_outlier_corrected: bool = False
     is_interpolated: bool = False
@@ -48,7 +48,7 @@ class ProcessedReading(SensorReading):
 
 
 class PredictionResult(BaseModel):
-    """خروجی ماژول پیش‌بینی برای دمای راکتور طی افق ۶۰ ثانیه (FR-ML-01)."""
+    """Prediction module output for the reactor temperature over a 60-second horizon (FR-ML-01)."""
 
     timestamp: datetime
     unit_id: int = 1
@@ -62,7 +62,7 @@ class PredictionResult(BaseModel):
 
 
 class OptimizationRecommendation(BaseModel):
-    """پیشنهاد سیستم توصیه‌گر برای دبی خوراک بهینه (FR-ML-03)."""
+    """Recommender system proposal for the optimal feed flow (FR-ML-03)."""
 
     timestamp: datetime
     unit_id: int = 1
@@ -74,7 +74,7 @@ class OptimizationRecommendation(BaseModel):
 
 
 class Alert(BaseModel):
-    """هشدار صادر شده توسط ماژول پیش‌بینی یا مانیتورینگ (FR-ML-02, FR-ALERT-01/02)."""
+    """Alert issued by the prediction or monitoring module (FR-ML-02, FR-ALERT-01/02)."""
 
     level: AlertLevel
     message: str

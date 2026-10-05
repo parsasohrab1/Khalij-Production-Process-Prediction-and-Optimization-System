@@ -1,6 +1,6 @@
-"""احراز هویت اپراتورها با رمز عبور + احراز هویت دو مرحله‌ای اجباری (NFR-SEC-01).
+"""Operator authentication with password + mandatory two-factor authentication (NFR-SEC-01).
 
-فاز ۶: پشتیبانی از ابطال توکن (logout)، RBAC مبتنی بر حداقل نقش، و jti.
+Phase 6: support for token revocation (logout), minimum-role-based RBAC, and jti.
 """
 from __future__ import annotations
 
@@ -48,7 +48,7 @@ def get_operator_by_employee_code(employee_code: str) -> dict | None:
             row = cur.fetchone()
             return dict(row) if row else None
     except Exception:  # noqa: BLE001
-        logger.exception("خوانش اطلاعات اپراتور از PostgreSQL ناموفق بود.")
+        logger.exception("Reading operator information from PostgreSQL failed.")
         return None
 
 
@@ -97,7 +97,7 @@ def decode_token(token: str) -> dict:
     try:
         return jwt.decode(token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm])
     except JWTError as exc:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="توکن نامعتبر یا منقضی شده است.") from exc
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="The token is invalid or expired.") from exc
 
 
 def _token_fingerprint(token: str) -> str:
@@ -105,7 +105,7 @@ def _token_fingerprint(token: str) -> str:
 
 
 def revoke_token(token: str) -> None:
-    """ابطال توکن تا زمان انقضا (logout)."""
+    """Revoke the token until its expiry (logout)."""
     try:
         payload = jwt.decode(
             token,
@@ -120,7 +120,7 @@ def revoke_token(token: str) -> None:
             ttl = max(60, int(exp - datetime.now(timezone.utc).timestamp()))
         _redis.setex(f"{_REVOKE_PREFIX}{jti}", ttl, "1")
     except Exception:  # noqa: BLE001
-        logger.debug("ابطال توکن ناموفق بود.", exc_info=True)
+        logger.debug("Token revocation failed.", exc_info=True)
 
 
 def is_token_revoked(payload: dict) -> bool:
@@ -138,30 +138,30 @@ async def get_current_operator(token: str = Depends(_oauth2_scheme)) -> dict:
     if payload.get("token_type") != _ACCESS_TOKEN_TYPE:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="این توکن هنوز مرحله احراز هویت دو مرحله‌ای را کامل نکرده است.",
+            detail="This token has not yet completed the two-factor authentication step.",
         )
     if is_token_revoked(payload):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="توکن باطل شده است.")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="The token has been revoked.")
     return payload
 
 
 def require_role(*roles: str):
     async def _dependency(operator: dict = Depends(get_current_operator)) -> dict:
         if roles and operator.get("role") not in roles:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="دسترسی کافی نیست.")
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient access.")
         return operator
 
     return _dependency
 
 
 def require_min_role(minimum: str):
-    """حداقل سطح نقش: operator < supervisor < admin."""
+    """Minimum role level: operator < supervisor < admin."""
 
     async def _dependency(operator: dict = Depends(get_current_operator)) -> dict:
         if not role_at_least(operator.get("role"), minimum):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"حداقل نقش مورد نیاز: {minimum}",
+                detail=f"Minimum required role: {minimum}",
             )
         return operator
 

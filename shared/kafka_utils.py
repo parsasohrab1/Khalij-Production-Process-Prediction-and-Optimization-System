@@ -1,6 +1,6 @@
-"""توابع کمکی برای تولید و مصرف پیام از Kafka (استریمینگ داده سنسورها، R-GEN-01).
+"""Helper functions for producing and consuming messages from Kafka (sensor data streaming, R-GEN-01).
 
-فاز ۷: پیکربندی پرتوان (compression، linger، idempotence، batch) برای مقیاس ۵۰k سنسور.
+Phase 7: high-throughput configuration (compression, linger, idempotence, batch) for the 50k-sensor scale.
 """
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ def _json_default(obj):
 
 
 def high_throughput_producer_config(bootstrap_servers: str, client_id: str = "khalij-pos") -> dict:
-    """پیکربندی Producer بهینه‌شده برای throughput بالا (فاز ۷)."""
+    """Producer configuration optimized for high throughput (phase 7)."""
     return {
         "bootstrap.servers": bootstrap_servers,
         "client.id": client_id,
@@ -51,7 +51,7 @@ def high_throughput_consumer_config(bootstrap_servers: str, group_id: str) -> di
 
 
 class KafkaEventProducer:
-    """Wrapper سبک روی confluent_kafka.Producer برای ارسال پیام‌های JSON."""
+    """Lightweight wrapper over confluent_kafka.Producer for sending JSON messages."""
 
     def __init__(self, bootstrap_servers: str, client_id: str = "khalij-pos", high_throughput: bool = True):
         cfg = (
@@ -80,7 +80,7 @@ class KafkaEventProducer:
             self._queued += 1
             self._producer.poll(0)
         except BufferError:
-            logger.warning("صف تولید Kafka پر است، در انتظار flush...")
+            logger.warning("Kafka producer queue is full, waiting for flush...")
             self._producer.flush(5)
             self._producer.produce(
                 topic=topic,
@@ -91,7 +91,7 @@ class KafkaEventProducer:
             self._queued += 1
 
     def send_batch(self, topic: str, payloads: list[dict], key_fn: Callable[[dict], str | None] | None = None) -> int:
-        """ارسال دسته‌ای با یک poll در انتها."""
+        """Batch send with a single poll at the end."""
         sent = 0
         for payload in payloads:
             key = key_fn(payload) if key_fn else None
@@ -116,7 +116,7 @@ class KafkaEventProducer:
                     sent += 1
                     self._queued += 1
                 except BufferError:
-                    logger.error("batch produce متوقف شد؛ صف پر است.")
+                    logger.error("Batch produce stopped; the queue is full.")
                     break
         self._producer.poll(0)
         return sent
@@ -124,7 +124,7 @@ class KafkaEventProducer:
     def _delivery_callback(self, err, msg):
         if err is not None:
             self._errors += 1
-            logger.error("ارسال پیام به Kafka ناموفق بود: %s", err)
+            logger.error("Failed to send a message to Kafka: %s", err)
         else:
             self._sent += 1
 
@@ -136,7 +136,7 @@ class KafkaEventProducer:
 
 
 class KafkaEventConsumer:
-    """Wrapper سبک روی confluent_kafka.Consumer برای مصرف پیام‌های JSON."""
+    """Lightweight wrapper over confluent_kafka.Consumer for consuming JSON messages."""
 
     def __init__(self, bootstrap_servers: str, group_id: str, topics: list[str], high_throughput: bool = True):
         cfg = (
@@ -164,7 +164,7 @@ class KafkaEventConsumer:
             try:
                 yield json.loads(msg.value().decode("utf-8"))
             except json.JSONDecodeError:
-                logger.warning("پیام نامعتبر JSON دریافت شد و نادیده گرفته شد.")
+                logger.warning("An invalid JSON message was received and ignored.")
 
     def run(self, handler: Callable[[dict], None]) -> None:
         for message in self.poll_messages():

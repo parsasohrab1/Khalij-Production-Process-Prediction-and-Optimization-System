@@ -1,8 +1,8 @@
-"""Schema Registry سبک مبتنی بر Pydantic برای پیام‌های Kafka (فاز ۲).
+"""Lightweight Pydantic-based Schema Registry for Kafka messages (phase 2).
 
-به‌جای وابستگی سنگین به Confluent Schema Registry / Avro، نسخه‌بندی schema
-با مدل‌های Pydantic انجام می‌شود. هر پیام هنگام ارسال/دریافت اعتبارسنجی می‌شود
-تا ناسازگاری بین میکروسرویس‌ها زود تشخیص داده شود.
+Instead of a heavy dependency on the Confluent Schema Registry / Avro, schema versioning
+is done with Pydantic models. Each message is validated on send/receive
+so that incompatibilities between microservices are detected early.
 """
 from __future__ import annotations
 
@@ -24,7 +24,7 @@ class SchemaName(str, Enum):
     ALERT = "process-alerts"
 
 
-# نسخه فعلی هر schema — در صورت شکستن سازگاری، نسخه را افزایش دهید
+# current version of each schema — increase the version if compatibility is broken
 SCHEMA_VERSIONS: dict[SchemaName, str] = {
     SchemaName.RAW_SENSOR: "1.0.0",
     SchemaName.PROCESSED_SENSOR: "1.0.0",
@@ -41,13 +41,13 @@ _SCHEMA_MODELS: dict[SchemaName, Type[BaseModel]] = {
 
 
 class SchemaValidationError(ValueError):
-    """پیام با schema ثبت‌شده سازگار نیست."""
+    """The message is not compatible with the registered schema."""
 
     def __init__(self, schema_name: SchemaName, errors: list[dict[str, Any]], payload: dict | None = None):
         self.schema_name = schema_name
         self.errors = errors
         self.payload = payload
-        super().__init__(f"اعتبارسنجی schema '{schema_name.value}' ناموفق: {errors}")
+        super().__init__(f"Validation of schema '{schema_name.value}' failed: {errors}")
 
 
 def get_schema_version(schema_name: SchemaName | str) -> str:
@@ -56,7 +56,7 @@ def get_schema_version(schema_name: SchemaName | str) -> str:
 
 
 def stamp_schema_metadata(payload: dict, schema_name: SchemaName | str) -> dict:
-    """افزودن فیلدهای _schema و _schema_version به پیام قبل از ارسال."""
+    """Add the _schema and _schema_version fields to the message before sending."""
     name = SchemaName(schema_name) if isinstance(schema_name, str) else schema_name
     stamped = dict(payload)
     stamped["_schema"] = name.value
@@ -65,18 +65,18 @@ def stamp_schema_metadata(payload: dict, schema_name: SchemaName | str) -> dict:
 
 
 def validate_message(payload: dict, schema_name: SchemaName | str) -> BaseModel:
-    """اعتبارسنجی payload در برابر مدل Pydantic مربوطه.
+    """Validate the payload against the corresponding Pydantic model.
 
     Raises:
-        SchemaValidationError: در صورت شکست اعتبارسنجی
+        SchemaValidationError: if validation fails
     """
     name = SchemaName(schema_name) if isinstance(schema_name, str) else schema_name
     model = _SCHEMA_MODELS[name]
 
-    # متادیتای schema را قبل از اعتبارسنجی مدل حذف می‌کنیم
+    # we remove the schema metadata before model validation
     clean = {k: v for k, v in payload.items() if not k.startswith("_")}
 
-    # برای SensorReading، فیلدهای اختیاری خارج از مدل (مثل efficiency) نادیده گرفته می‌شوند
+    # for SensorReading, optional fields outside the model (such as efficiency) are ignored
     try:
         return model.model_validate(clean)
     except ValidationError as exc:
@@ -84,7 +84,7 @@ def validate_message(payload: dict, schema_name: SchemaName | str) -> BaseModel:
 
 
 def try_validate(payload: dict, schema_name: SchemaName | str) -> tuple[BaseModel | None, SchemaValidationError | None]:
-    """نسخه بدون exception برای استفاده در حلقه مصرف‌کننده."""
+    """Exception-free version for use in the consumer loop."""
     try:
         return validate_message(payload, schema_name), None
     except SchemaValidationError as exc:

@@ -1,7 +1,7 @@
-"""نرمال‌سازی داده‌ها با Min-Max یا StandardScaler برای ورود به مدل (FR-PRE-03)."""
+"""Data normalization with Min-Max or StandardScaler for model input (FR-PRE-03)."""
 from __future__ import annotations
 
-# محدوده فیزیکی مجاز هر سنسور مطابق FR-DATA-02 و سند SRS
+# allowed physical range of each sensor per FR-DATA-02 and the SRS document
 SENSOR_RANGES: dict[str, tuple[float, float]] = {
     "reactor_temp_c": (150.0, 350.0),
     "reactor_pressure_bar": (10.0, 40.0),
@@ -13,7 +13,7 @@ SENSOR_RANGES: dict[str, tuple[float, float]] = {
 
 
 def min_max_normalize(field: str, value: float) -> float:
-    """نرمال‌سازی Min-Max بر اساس محدوده فیزیکی مجاز سنسور، خروجی در بازه [0, 1]."""
+    """Min-Max normalization based on the sensor's allowed physical range, output in [0, 1]."""
     low, high = SENSOR_RANGES.get(field, (0.0, 1.0))
     if high == low:
         return 0.0
@@ -22,12 +22,12 @@ def min_max_normalize(field: str, value: float) -> float:
 
 
 def standard_normalize(value: float, mean: float, std: float) -> float:
-    """نرمال‌سازی StandardScaler: (x - mean) / std."""
+    """StandardScaler normalization: (x - mean) / std."""
     if std == 0:
         return 0.0
     return (value - mean) / std
 
 
 def normalize_reading(reading: dict) -> dict:
-    """خروجی: نگاشت هر فیلد سنسور به مقدار نرمال‌شده Min-Max بین ۰ و ۱."""
+    """Output: mapping of each sensor field to its Min-Max normalized value between 0 and 1."""
     return {field: min_max_normalize(field, reading[field]) for field in SENSOR_RANGES if field in reading}

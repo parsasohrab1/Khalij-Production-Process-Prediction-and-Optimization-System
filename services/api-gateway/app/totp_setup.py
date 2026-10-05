@@ -1,4 +1,4 @@
-"""راه‌اندازی اولیه TOTP با QR Code برای اپراتورها (فاز ۵ / NFR-SEC-01)."""
+"""Initial TOTP setup with QR Code for operators (phase 5 / NFR-SEC-01)."""
 from __future__ import annotations
 
 import base64
@@ -20,7 +20,7 @@ def _pg_dsn() -> str:
 
 
 def generate_totp_setup(employee_code: str, issuer: str = "Khalij POS") -> dict | None:
-    """ساخت secret جدید + URI + تصویر QR (Base64 PNG) برای ثبت در Authenticator."""
+    """Build a new secret + URI + QR image (Base64 PNG) for registering in the Authenticator."""
     try:
         with psycopg2.connect(_pg_dsn()) as conn, conn.cursor() as cur:
             cur.execute(
@@ -52,8 +52,8 @@ def generate_totp_setup(employee_code: str, issuer: str = "Khalij POS") -> dict 
             "otp_secret": secret,
             "otpauth_uri": provisioning_uri,
             "qr_code_png_base64": qr_b64,
-            "instructions": "QR را با Google Authenticator / Authy اسکن کنید، سپس کد ۶ رقمی را برای ورود وارد کنید.",
+            "instructions": "Scan the QR with Google Authenticator / Authy, then enter the 6-digit code to log in.",
         }
     except Exception:  # noqa: BLE001
-        logger.exception("تولید QR برای TOTP ناموفق بود.")
+        logger.exception("QR generation for TOTP failed.")
         return None

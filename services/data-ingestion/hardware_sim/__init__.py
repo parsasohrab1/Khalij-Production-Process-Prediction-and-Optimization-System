@@ -1,1 +1,1 @@
-"""شبیه‌سازهای سخت‌افزاری برای تست فاز ۱ (OPC-UA DCS و Modbus PLC)."""
+"""Hardware simulators for phase 1 tests (OPC-UA DCS and Modbus PLC)."""

@@ -1,7 +1,7 @@
-"""قوانین کیفیت داده (Data Quality) برای سنسورهای فرایند — فاز ۲.
+"""Data Quality rules for process sensors — phase 2.
 
-الهام‌گرفته از Great Expectations، بدون وابستگی سنگین خارجی.
-هر Expectation روی یک رکورد یا دسته رکورد اجرا می‌شود و نتیجه Pass/Fail برمی‌گرداند.
+Inspired by Great Expectations, without heavy external dependencies.
+Each Expectation runs on a record or a batch of records and returns Pass/Fail.
 """
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from dataclasses import field as dc_field
 from datetime import datetime, timezone
 from typing import Any, Callable
 
-# محدوده فیزیکی مجاز مطابق FR-DATA-02 / SRS
+# allowed physical range per FR-DATA-02 / SRS
 SENSOR_BOUNDS: dict[str, tuple[float, float]] = {
     "reactor_temp_c": (150.0, 350.0),
     "reactor_pressure_bar": (10.0, 40.0),
@@ -81,7 +81,7 @@ def expect_value_in_range(record: dict, field: str, low: float, high: float) -> 
 
 
 def expect_freshness(record: dict, max_age_seconds: float = 10.0) -> ExpectationResult:
-    """بررسی اینکه timestamp رکورد بیش از حد قدیمی نباشد (تأخیر خط لوله)."""
+    """Check that the record's timestamp is not too old (pipeline delay)."""
     ts = record.get("timestamp")
     if ts is None:
         return ExpectationResult(name="expect_freshness", success=False, detail="timestamp missing")
@@ -95,7 +95,7 @@ def expect_freshness(record: dict, max_age_seconds: float = 10.0) -> Expectation
         if parsed.tzinfo is None:
             parsed = parsed.replace(tzinfo=timezone.utc)
         age = (datetime.now(timezone.utc) - parsed).total_seconds()
-        # برای داده تاریخی/سنتتیک سن را محدود نمی‌کنیم اگر منفی یا خیلی بزرگ باشد در حالت batch
+        # for historical/synthetic data we do not limit age if it is negative or very large in batch mode
         ok = age <= max_age_seconds or age < 0
         return ExpectationResult(
             name="expect_freshness",
@@ -126,7 +126,7 @@ def validate_record(
     check_freshness: bool = False,
     max_age_seconds: float = 10.0,
 ) -> QualityReport:
-    """اجرای مجموعه Expectationها روی یک رکورد سنسور."""
+    """Run the Expectation suite on one sensor record."""
     results: list[ExpectationResult] = [expect_required_fields(record)]
     for sensor_field, (low, high) in SENSOR_BOUNDS.items():
         results.append(expect_value_in_range(record, sensor_field, low, high))
@@ -136,7 +136,7 @@ def validate_record(
 
 
 def validate_batch(records: list[dict], max_null_rate: float = 0.05) -> QualityReport:
-    """اجرای Expectationهای دسته‌ای (نرخ NaN و محدوده روی هر رکورد)."""
+    """Run batch Expectations (NaN rate and range on each record)."""
     results: list[ExpectationResult] = []
     for sensor_field in SENSOR_BOUNDS:
         results.append(expect_null_rate(records, sensor_field, max_null_rate=max_null_rate))
@@ -151,14 +151,14 @@ def validate_batch(records: list[dict], max_null_rate: float = 0.05) -> QualityR
                     observed=r.observed,
                 )
             )
-    # اگر هیچ failure ردیفی نباشد، یک نتیجه کلی موفق اضافه می‌کنیم
+    # if there are no row failures, add an overall success result
     row_failures = [r for r in results if r.name.startswith("row_")]
     if not row_failures:
         results.append(ExpectationResult(name="expect_all_rows_valid", success=True, detail=f"n={len(records)}"))
     return QualityReport(passed=all(r.success for r in results), results=results)
 
 
-# رجیستری expectationهای قابل فراخوانی از CLI
+# registry of expectations callable from the CLI
 EXPECTATION_SUITE: list[Callable[..., ExpectationResult]] = [
     expect_required_fields,
 ]

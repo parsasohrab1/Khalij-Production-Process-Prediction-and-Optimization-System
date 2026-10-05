@@ -1,7 +1,7 @@
-"""شبیه‌ساز سنسورها برای محیط توسعه/دمو (بدون نیاز به سرور OPC-UA/Modbus واقعی).
+"""Sensor simulator for the development/demo environment (no need for a real OPC-UA/Modbus server).
 
-الگوی نوسانی و نویز مشابه اسکریپت data/generate_synthetic_data.py استفاده می‌شود
-تا رفتار خط لوله داده (Ingestion -> Kafka -> Preprocessing -> Prediction) قابل تست باشد.
+The oscillation and noise pattern is similar to the data/generate_synthetic_data.py script
+so that the behavior of the data pipeline (Ingestion -> Kafka -> Preprocessing -> Prediction) can be tested.
 """
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ import numpy as np
 
 
 class SensorSimulator:
-    """در هر فراخوانی `next_reading`، یک رکورد سنسور جدید (مطابق FR-DATA-02) تولید می‌کند."""
+    """On each `next_reading` call, generates a new sensor record (per FR-DATA-02)."""
 
     def __init__(self, seed: int | None = None):
         self._rng = np.random.default_rng(seed)
@@ -21,7 +21,7 @@ class SensorSimulator:
 
     def next_reading(self, unit_id: int = 1) -> dict:
         elapsed = time.monotonic() - self._t0
-        # فاز هر واحد کمی جابه‌جا می‌شود تا شاردهای موازی داده یکسان تولید نکنند
+        # the phase of each unit is slightly shifted so parallel shards do not produce identical data
         t = elapsed * 0.05 + (unit_id % 17) * 0.37
 
         reactor_temp = 250 + 30 * math.sin(t * 0.5) + 0.0005 * elapsed + self._rng.normal(0, 2)

@@ -1,4 +1,4 @@
-"""پیکربندی مشترک تمام سرویس‌ها، مقادیر از متغیرهای محیطی (.env) خوانده می‌شوند."""
+"""Shared configuration of all services, values are read from environment variables (.env)."""
 from functools import lru_cache
 
 from pydantic import Field
@@ -40,7 +40,7 @@ class Settings(BaseSettings):
     )
     kafka_consumer_group: str = Field(default="khalij-pos", alias="KAFKA_CONSUMER_GROUP")
 
-    # InfluxDB long-term / downsampling (فاز ۲ / R-GEN-02)
+    # InfluxDB long-term / downsampling (phase 2 / R-GEN-02)
     influxdb_bucket_downsampled: str = Field(
         default="process_sensors_1m", alias="INFLUXDB_BUCKET_DOWNSAMPLED"
     )
@@ -63,7 +63,7 @@ class Settings(BaseSettings):
     smtp_from_address: str = Field(default="", alias="SMTP_FROM_ADDRESS")
     smtp_to_addresses: str = Field(default="", alias="SMTP_TO_ADDRESSES")
 
-    # Security (NFR-SEC-01, NFR-SEC-02) + فاز ۶ سخت‌سازی
+    # Security (NFR-SEC-01, NFR-SEC-02) + phase 6 hardening
     jwt_secret_key: str = Field(default="dev-secret-change-me", alias="JWT_SECRET_KEY")
     jwt_algorithm: str = Field(default="HS256", alias="JWT_ALGORITHM")
     access_token_expire_minutes: int = Field(default=30, alias="ACCESS_TOKEN_EXPIRE_MINUTES")

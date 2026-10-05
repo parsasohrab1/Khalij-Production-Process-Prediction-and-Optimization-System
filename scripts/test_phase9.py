@@ -1,6 +1,6 @@
-"""تست‌های واحد فاز ۹: اعتبارسنجی مانیفست‌های Kubernetes / Kustomize.
+"""Phase 9 unit tests: validation of Kubernetes / Kustomize manifests.
 
-اجرا:
+Run:
     pip install PyYAML
     python scripts/test_phase9.py
 """
@@ -115,4 +115,4 @@ if __name__ == "__main__":
     test_secrets_example()
     test_dev_overlay()
     test_deploy_scripts_exist()
-    print("\nفاز ۹: همه تست‌های واحد پاس شدند.")
+    print("\nPhase 9: all unit tests passed.")

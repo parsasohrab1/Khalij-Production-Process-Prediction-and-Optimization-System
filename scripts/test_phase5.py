@@ -1,6 +1,6 @@
-"""تست‌های واحد فاز ۵: داشبورد UX، WebSocket، TOTP QR، خروجی گزارش.
+"""Phase 5 unit tests: dashboard UX, WebSocket, TOTP QR, report export.
 
-اجرا:
+Run:
     python scripts/test_phase5.py
 """
 from __future__ import annotations
@@ -24,7 +24,7 @@ def _load_module(service: str, module_name: str) -> ModuleType:
     spec = importlib.util.spec_from_file_location(f"phase5_{service}_{module_name}", path)
     assert spec and spec.loader
     mod = importlib.util.module_from_spec(spec)
-    # پکیج مجازی تا importهای نسبی داخل ماژول نشکنند (در صورت نیاز)
+    # virtual package so relative imports inside the module do not break (if needed)
     sys.modules[spec.name] = mod
     spec.loader.exec_module(mod)
     return mod
@@ -42,7 +42,7 @@ def test_report_export_formats() -> None:
             "shift_end": "2026-07-24T14:00:00+00:00",
             "avg_efficiency": 71.2,
             "energy_saved_kwh": 120.5,
-            "recommendation_summary": "کاهش دبی خوراک به 320",
+            "recommendation_summary": "Reduce the feed flow to 320",
             "generated_at": "2026-07-24T14:01:00+00:00",
         }
     ]
@@ -127,4 +127,4 @@ if __name__ == "__main__":
     test_realtime_token_validation()
     test_dashboard_static_exists()
     test_gateway_modules_exist()
-    print("\nفاز ۵: همه تست‌های واحد پاس شدند.")
+    print("\nPhase 5: all unit tests passed.")

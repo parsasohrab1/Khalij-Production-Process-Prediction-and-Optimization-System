@@ -1,6 +1,6 @@
-"""تست‌های واحد فاز ۱۰: بسته پایلوت (config، docs، overlay، readiness).
+"""Phase 10 unit tests: pilot package (config, docs, overlay, readiness).
 
-اجرا:
+Run:
     pip install PyYAML
     python scripts/test_phase10.py
 """
@@ -88,4 +88,4 @@ if __name__ == "__main__":
     test_readiness_script()
     test_smoke_offline()
     test_k8s_pilot_overlay()
-    print("\nفاز ۱۰: همه تست‌های واحد پاس شدند.")
+    print("\nPhase 10: all unit tests passed.")

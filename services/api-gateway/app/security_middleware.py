@@ -1,4 +1,4 @@
-"""میان‌افزار هدرهای امنیتی HTTP (فاز ۶ / NFR-SEC-02)."""
+"""HTTP security headers middleware (phase 6 / NFR-SEC-02)."""
 from __future__ import annotations
 
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -14,7 +14,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers.setdefault("Referrer-Policy", "no-referrer")
         response.headers.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
         response.headers.setdefault("X-XSS-Protection", "0")
-        # CSP سبک برای داشبورد استاتیک (inline script مجاز برای SPA فعلی)
+        # Lightweight CSP for the static dashboard (inline script allowed for the current SPA)
         response.headers.setdefault(
             "Content-Security-Policy",
             "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; "

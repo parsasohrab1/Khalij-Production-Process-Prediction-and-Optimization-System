@@ -1,4 +1,4 @@
-"""معیارهای ارزیابی مدل پیش‌بینی دما (فاز ۳): MAE / RMSE / MAPE."""
+"""Evaluation metrics for the temperature prediction model (phase 3): MAE / RMSE / MAPE."""
 from __future__ import annotations
 
 import numpy as np

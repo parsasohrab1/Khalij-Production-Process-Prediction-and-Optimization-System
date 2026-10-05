@@ -1,7 +1,7 @@
-"""سرویس پیش‌پردازش (Preprocessing) - FR-PRE-01..03 + فاز ۲ (Schema/DLQ/Quality).
+"""Preprocessing service (Preprocessing) - FR-PRE-01..03 + phase 2 (Schema/DLQ/Quality).
 
-مصرف داده خام از Kafka، اعتبارسنجی schema، بررسی کیفیت، حذف پرت، درون‌یابی،
-نرمال‌سازی و انتشار مجدد. پیام‌های نامعتبر به Dead Letter Queue ارسال می‌شوند.
+Consumes raw data from Kafka, validates the schema, checks quality, removes outliers, interpolates,
+normalizes and republishes. Invalid messages are sent to the Dead Letter Queue.
 """
 from __future__ import annotations
 
@@ -123,7 +123,7 @@ class PreprocessingWorker:
         _stats["dlq_published"] += 1
 
     def _run(self) -> None:
-        logger.info("مصرف‌کننده پیش‌پردازش (فاز ۲: Schema+DLQ+Quality) شروع به کار کرد.")
+        logger.info("Preprocessing consumer (phase 2: Schema+DLQ+Quality) started.")
         while not self._stop.is_set():
             msg = self._consumer.poll(1.0)
             if msg is None:
@@ -131,7 +131,7 @@ class PreprocessingWorker:
             if msg.error():
                 if msg.error().code() == KafkaError._PARTITION_EOF:
                     continue
-                logger.error("خطای Kafka: %s", msg.error())
+                logger.error("Kafka error: %s", msg.error())
                 continue
 
             raw_bytes = msg.value()
@@ -142,14 +142,14 @@ class PreprocessingWorker:
                 self._send_dlq(raw_bytes.decode("utf-8", errors="replace"), str(exc), "invalid_json")
                 continue
 
-            # ۱) اعتبارسنجی Schema Registry
+            # 1) Schema Registry validation
             _, schema_err = try_validate(raw, SchemaName.RAW_SENSOR)
             if schema_err is not None:
                 _stats["schema_rejected"] += 1
                 self._send_dlq(raw, str(schema_err), "schema_validation")
                 continue
 
-            # ۲) کیفیت داده: فیلدهای اجباری؛ هشدار محدوده (بدون رد کردن — FR-PRE-01 پرت‌ها را اصلاح می‌کند)
+            # 2) Data quality: mandatory fields; range warning (without rejecting — FR-PRE-01 corrects outliers)
             quality = validate_record(raw, check_freshness=False)
             required_failed = any(r.name == "expect_required_fields" and not r.success for r in quality.results)
             if required_failed:
@@ -158,7 +158,7 @@ class PreprocessingWorker:
                 continue
             if not quality.passed:
                 _stats["quality_warnings"] += 1
-                logger.debug("هشدار کیفیت داده: %s", [f.detail for f in quality.failures])
+                logger.debug("Data quality warning: %s", [f.detail for f in quality.failures])
 
             try:
                 processed = _process_reading(raw)
@@ -166,7 +166,7 @@ class PreprocessingWorker:
                 self._store(processed)
                 _stats["processed"] += 1
             except Exception as exc:  # noqa: BLE001
-                logger.exception("پردازش رکورد ناموفق بود.")
+                logger.exception("Record processing failed.")
                 self._send_dlq(raw, str(exc), "processing_exception")
 
     def _publish(self, processed: dict) -> None:
@@ -187,14 +187,14 @@ class PreprocessingWorker:
                     point = point.field(field, float(processed[field]))
             self._write_api.write(bucket=settings.influxdb_bucket, org=settings.influxdb_org, record=point)
         except Exception:  # noqa: BLE001
-            logger.debug("نوشتن داده پردازش‌شده در InfluxDB ناموفق بود.")
+            logger.debug("Writing processed data to InfluxDB failed.")
 
         try:
             self._redis.set(
                 f"latest_reading:{processed.get('unit_id', 1)}", json.dumps(processed, default=str), ex=300
             )
         except Exception:  # noqa: BLE001
-            logger.debug("به‌روزرسانی کش Redis ناموفق بود.")
+            logger.debug("Updating the Redis cache failed.")
 
 
 _worker: PreprocessingWorker | None = None
@@ -205,7 +205,7 @@ async def startup_event() -> None:
     global _worker
     _worker = PreprocessingWorker()
     _worker.start()
-    logger.info("سرویس Preprocessing راه‌اندازی شد.")
+    logger.info("Preprocessing service started.")
 
 
 @app.on_event("shutdown")
@@ -221,7 +221,7 @@ async def health() -> dict:
 
 @app.get("/quality/stats")
 async def quality_stats() -> dict:
-    """آمار کیفیت داده و DLQ برای مانیتورینگ فاز ۲."""
+    """Data quality and DLQ statistics for phase 2 monitoring."""
     return {
         "processed": _stats["processed"],
         "schema_rejected": _stats["schema_rejected"],

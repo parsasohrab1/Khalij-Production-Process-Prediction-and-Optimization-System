@@ -1,6 +1,6 @@
 # ==========================================================================
-# Khalij POS - زیرساخت اصلی (Data Lake, Cache, Message Bus, MLOps, Services)
-# مطابق بخش ۵ سند SRS: PostgreSQL + InfluxDB + Redis + Kafka + MLflow
+# Khalij POS - main infrastructure (Data Lake, Cache, Message Bus, MLOps, Services)
+# Per section 5 of the SRS document: PostgreSQL + InfluxDB + Redis + Kafka + MLflow
 # ==========================================================================
 
 networks:
@@ -16,7 +16,7 @@ volumes:
 
 services:
   # -------------------------------------------------------------------
-  # پایگاه داده تراکنشی: کاربران، اپراتورها، هشدارها، گزارش‌های شیفت
+  # Transactional database: users, operators, alerts, shift reports
   # -------------------------------------------------------------------
   postgres:
     image: postgres:16-alpine
@@ -39,7 +39,7 @@ services:
     networks: [khalij-net]
 
   # -------------------------------------------------------------------
-  # پایگاه داده سری زمانی: دما، فشار، دبی، سطح، ترکیب گاز، RPM
+  # Time-series database: temperature, pressure, flow, level, gas composition, RPM
   # -------------------------------------------------------------------
   influxdb:
     image: influxdb:2.7-alpine
@@ -65,7 +65,7 @@ services:
     networks: [khalij-net]
 
   # -------------------------------------------------------------------
-  # فاز ۲: ساخت bucket cold (۵ ساله) + Task downsampling هر ۱ دقیقه
+  # Phase 2: build the cold bucket (5-year) + downsampling Task every 1 minute
   # -------------------------------------------------------------------
   influxdb-init:
     build:
@@ -88,7 +88,7 @@ services:
     networks: [khalij-net]
 
   # -------------------------------------------------------------------
-  # فاز ۲: ایجاد topicهای اصلی + Dead Letter Queue
+  # Phase 2: create the main topics + Dead Letter Queue
   # -------------------------------------------------------------------
   kafka-init:
     image: apache/kafka:3.7.0
@@ -116,7 +116,7 @@ services:
     networks: [khalij-net]
 
   # -------------------------------------------------------------------
-  # کش برای سرو سریع آخرین مقادیر سنسورها و نتایج پیش‌بینی
+  # Cache for fast serving of the latest sensor values and prediction results
   # -------------------------------------------------------------------
   redis:
     image: redis:7-alpine
@@ -135,7 +135,7 @@ services:
     networks: [khalij-net]
 
   # -------------------------------------------------------------------
-  # استریمینگ داده سنسورها (KRaft mode - بدون نیاز به Zookeeper)
+  # Sensor data streaming (KRaft mode - no Zookeeper needed)
   # -------------------------------------------------------------------
   kafka:
     image: apache/kafka:3.7.0
@@ -159,7 +159,7 @@ services:
     networks: [khalij-net]
 
   # -------------------------------------------------------------------
-  # MLOps: ثبت، نسخه‌بندی و سرو مدل‌های LSTM/XGBoost
+  # MLOps: registry, versioning and serving of LSTM/XGBoost models
   # -------------------------------------------------------------------
   mlflow:
     build:
@@ -179,13 +179,13 @@ services:
     networks: [khalij-net]
 
   # -------------------------------------------------------------------
-  # میکروسرویس‌های اپلیکیشن (FastAPI)
+  # Application microservices (FastAPI)
   # -------------------------------------------------------------------
   data-ingestion:
     build:
       context: .
       dockerfile: services/data-ingestion/Dockerfile
-    # بدون container_name ثابت تا docker compose scale ممکن باشد (فاز ۷)
+    # Without a fixed container_name so docker compose scale is possible (phase 7)
     restart: unless-stopped
     env_file: .env
     environment:
@@ -212,7 +212,7 @@ services:
     networks: [khalij-net]
 
   # -------------------------------------------------------------------
-  # شبیه‌سازهای سخت‌افزاری فاز ۱ (فقط با profile=hardware-sim)
+  # Phase 1 hardware simulators (only with profile=hardware-sim)
   # docker compose --profile hardware-sim up -d
   # -------------------------------------------------------------------
   opcua-test-server:
@@ -305,8 +305,8 @@ services:
     networks: [khalij-net]
 
   # -------------------------------------------------------------------
-  # Reverse Proxy با TLS 1.3 (NFR-SEC-02)
-  # دسترسی امن: https://localhost
+  # Reverse Proxy with TLS 1.3 (NFR-SEC-02)
+  # Secure access: https://localhost
   # -------------------------------------------------------------------
   tls-gateway:
     image: nginx:1.27-alpine

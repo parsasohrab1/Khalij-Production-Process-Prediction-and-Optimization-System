@@ -1,10 +1,10 @@
-"""Circuit Breaker ساده برای اتصال به منابع سخت‌افزاری (OPC-UA/Modbus).
+"""Simple Circuit Breaker for connecting to hardware sources (OPC-UA/Modbus).
 
-هنگامی که تعداد خطاهای متوالی از آستانه بگذرد، مدار «باز» می‌شود و به‌جای
-تلاش پیوسته برای اتصال (که می‌تواند به DCS/PLC واقعی فشار وارد کند)، برای
-مدت `recovery_timeout` هیچ تلاشی صورت نمی‌گیرد و سرویس به‌طور موقت به حالت
-Fallback (مثلاً شبیه‌ساز) سوییچ می‌کند. پس از پایان این بازه، یک تلاش آزمایشی
-(Half-Open) انجام می‌شود.
+When the number of consecutive errors exceeds the threshold, the circuit "opens" and instead of
+continuously trying to connect (which could put pressure on a real DCS/PLC), for
+the `recovery_timeout` period no attempt is made and the service temporarily switches to
+Fallback mode (e.g., simulator). After this period, a trial attempt
+(Half-Open) is made.
 """
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ class CircuitState(str, Enum):
 
 
 class CircuitOpenError(RuntimeError):
-    """هنگامی که مدار باز است و درخواست جدید مجاز نیست، صادر می‌شود."""
+    """Raised when the circuit is open and a new request is not allowed."""
 
 
 class CircuitBreaker:
@@ -39,7 +39,7 @@ class CircuitBreaker:
         if self._state == CircuitState.OPEN and self._opened_at is not None:
             if time.monotonic() - self._opened_at >= self.recovery_timeout_s:
                 self._state = CircuitState.HALF_OPEN
-                logger.info("مدار '%s' وارد حالت Half-Open شد؛ یک تلاش آزمایشی مجاز است.", self.name)
+                logger.info("Circuit '%s' entered Half-Open state; one trial attempt is allowed.", self.name)
         return self._state
 
     def allow_request(self) -> bool:
@@ -47,7 +47,7 @@ class CircuitBreaker:
 
     def record_success(self) -> None:
         if self._state != CircuitState.CLOSED:
-            logger.info("مدار '%s' پس از اتصال موفق به حالت Closed بازگشت.", self.name)
+            logger.info("Circuit '%s' returned to Closed state after a successful connection.", self.name)
         self._state = CircuitState.CLOSED
         self._consecutive_failures = 0
         self._opened_at = None
@@ -58,7 +58,7 @@ class CircuitBreaker:
             self._state = CircuitState.OPEN
             self._opened_at = time.monotonic()
             logger.warning(
-                "مدار '%s' باز شد (%d خطای متوالی)؛ برای %.0f ثانیه به حالت Fallback سوییچ می‌شود.",
+                "Circuit '%s' opened (%d consecutive errors); switching to Fallback mode for %.0f seconds.",
                 self.name,
                 self._consecutive_failures,
                 self.recovery_timeout_s,

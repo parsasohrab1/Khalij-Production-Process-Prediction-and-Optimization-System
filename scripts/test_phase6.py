@@ -1,6 +1,6 @@
-"""تست‌های واحد فاز ۶: سخت‌سازی امنیت (RBAC، policy، secrets، rate/lockout helpers).
+"""Phase 6 unit tests: security hardening (RBAC, policy, secrets, rate/lockout helpers).
 
-اجرا:
+Run:
     python scripts/test_phase6.py
 """
 from __future__ import annotations
@@ -32,10 +32,10 @@ def test_password_policy() -> None:
     from shared.security import validate_password_policy
 
     assert validate_password_policy("short") 
-    assert "۱۰" in validate_password_policy("short")[0] or len(validate_password_policy("short")) > 0
+    assert "10" in validate_password_policy("short")[0] or len(validate_password_policy("short")) > 0
     assert validate_password_policy("ChangeMe123!") == []
     weak = validate_password_policy("alllowercase1!")
-    assert any("بزرگ" in e for e in weak)
+    assert any("uppercase" in e for e in weak)
     print("[OK] password policy")
 
 
@@ -54,7 +54,7 @@ def test_role_hierarchy() -> None:
 def test_production_secrets_guard() -> None:
     from shared.security import assert_production_secrets
 
-    # development: فقط هشدار
+    # development: warning only
     warns = assert_production_secrets(
         environment="development",
         jwt_secret_key="dev-secret-change-me",
@@ -96,8 +96,8 @@ def test_production_secrets_guard() -> None:
 
 
 def test_rate_limiter_logic() -> None:
-    # بدون Redis واقعی: ماژول را load و متد hit را با mock ساده تست نمی‌کنیم
-    # به‌جای آن وجود فایل و امضای API را چک می‌کنیم
+    # without a real Redis: we do not test loading the module and the hit method with a simple mock
+    # instead we check the existence of the file and the API signature
     rl = _load("api-gateway", "rate_limit")
     assert hasattr(rl, "enforce_rate_limit")
     assert hasattr(rl, "RateLimiter")
@@ -163,4 +163,4 @@ if __name__ == "__main__":
     test_nginx_hardening()
     test_init_sql_rbac_users()
     test_internal_api_key_headers()
-    print("\nفاز ۶: همه تست‌های واحد پاس شدند.")
+    print("\nPhase 6: all unit tests passed.")

@@ -1,6 +1,6 @@
-"""تست‌های واحد فاز ۸: مشاهده‌پذیری (متریک، SLO، لاگ JSON، tracing stub).
+"""Phase 8 unit tests: observability (metrics, SLO, JSON log, tracing stub).
 
-اجرا:
+Run:
     python scripts/test_phase8.py
 """
 from __future__ import annotations
@@ -22,7 +22,7 @@ def test_slo_budget() -> None:
 
     weekly = NFR_PER_02_WEEKLY.as_dict(0)
     assert weekly["slo_met"] is True
-    # بیش از بودجه هفتگی (~60.48 ثانیه)
+    # beyond the weekly budget (~60.48 seconds)
     burned = NFR_PER_02_WEEKLY.as_dict(120)
     assert burned["slo_met"] is False
     assert burned["burn_ratio"] > 1
@@ -118,4 +118,4 @@ if __name__ == "__main__":
     test_prometheus_metrics_endpoint()
     test_tracing_disabled_without_endpoint()
     test_observability_artifacts()
-    print("\nفاز ۸: همه تست‌های واحد پاس شدند.")
+    print("\nPhase 8: all unit tests passed.")

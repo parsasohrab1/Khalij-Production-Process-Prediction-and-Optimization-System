@@ -1,11 +1,11 @@
 # ==========================================================================
-# فاز ۷ — پروفایل مقیاس افقی (NFR-SCL-01)
-# اجرا:
+# Phase 7 — Horizontal scale profile (NFR-SCL-01)
+# Run:
 #   docker compose -f docker-compose.yml -f docker-compose.scale.yml up -d --scale data-ingestion=3 --scale preprocessing=2 --scale prediction=2
 #
-# نکات:
-# - پورت‌های host برای سرویس‌های مقیاس‌شده حذف می‌شوند (فقط از طریق api-gateway)
-# - DATA_UNIT_IDS را روی بازه بزرگ تنظیم کنید؛ هر replica با SHARD روی hostname تخصیص می‌گیرد
+# Notes:
+# - Host ports are removed for the scaled services (only via api-gateway)
+# - Set DATA_UNIT_IDS to a large range; each replica is assigned a SHARD from its hostname
 # ==========================================================================
 
 services:
@@ -14,7 +14,7 @@ services:
     environment:
       DATA_UNIT_IDS: ${DATA_UNIT_IDS:-1-100}
       INGESTION_SHARD_COUNT: ${INGESTION_SHARD_COUNT:-3}
-      # SHARD_ID از hostname مشتق می‌شود اگر تنظیم نشود
+      # SHARD_ID is derived from the hostname if not set
       INGESTION_INTERVAL_S: ${INGESTION_INTERVAL_S:-1.0}
       INFLUX_BATCH_SIZE: ${INFLUX_BATCH_SIZE:-100}
       KAFKA_LINGER_MS: "20"

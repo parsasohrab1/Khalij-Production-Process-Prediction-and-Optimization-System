@@ -1,7 +1,7 @@
-"""سرویس جمع‌آوری داده (Data Ingestion) - R-GEN-01, FR-DATA-01..03 + فاز ۷ مقیاس.
+"""Data collection service (Data Ingestion) - R-GEN-01, FR-DATA-01..03 + phase 7 scaling.
 
-سوییچ منبع: simulator | opcua | modbus
-فاز ۷: شاردینگ واحدها، batch Kafka/Influx، بک‌پرشر، readiness.
+Source switch: simulator | opcua | modbus
+Phase 7: unit sharding, Kafka/Influx batch, backpressure, readiness.
 """
 from __future__ import annotations
 
@@ -127,7 +127,7 @@ async def startup_event() -> None:
             use_async_batch=True,
         )
     except Exception as exc:  # noqa: BLE001
-        logger.warning("اتصال اولیه به InfluxDB ناموفق بود: %s", exc)
+        logger.warning("Initial connection to InfluxDB failed: %s", exc)
         app.state.influx_writer = None
 
     app.state.producer = _get_producer()
@@ -142,18 +142,18 @@ async def startup_event() -> None:
     if _SOURCE_MODE in ("opcua", "modbus"):
         try:
             mapping = load_tag_mapping()
-            # سخت‌افزار معمولاً روی یک واحد؛ از اولین واحد تخصیص‌یافته استفاده می‌شود
+            # hardware is usually on a single unit; the first assigned unit is used
             unit_id = _ASSIGNED_UNITS[0] if _ASSIGNED_UNITS else _UNIT_ID
             unit_mapping = mapping.get(unit_id) or mapping.get(_UNIT_ID)
             if unit_mapping is None:
-                raise KeyError(f"نگاشت تگ برای واحد {unit_id} یافت نشد.")
+                raise KeyError(f"Tag mapping for unit {unit_id} not found.")
             app.state.hardware_client = _build_hardware_client(unit_mapping)
         except Exception as exc:  # noqa: BLE001
-            logger.error("بارگذاری نگاشت تگ ناموفق بود؛ Fallback به شبیه‌ساز: %s", exc)
+            logger.error("Loading the tag mapping failed; Fallback to the simulator: %s", exc)
 
     app.state.ingestion_task = asyncio.create_task(_ingestion_loop())
     logger.info(
-        "Data Ingestion آماده شد mode=%s shard=%s/%s units=%s interval=%ss",
+        "Data Ingestion ready mode=%s shard=%s/%s units=%s interval=%ss",
         _SOURCE_MODE,
         _SHARD_ID,
         _SHARD_COUNT,
@@ -193,7 +193,7 @@ async def _ensure_hardware_connected() -> bool:
         breaker.record_success()
         return True
     except Exception as exc:  # noqa: BLE001
-        logger.error("اتصال سخت‌افزاری (%s) ناموفق: %s", _SOURCE_MODE, exc)
+        logger.error("Hardware connection (%s) failed: %s", _SOURCE_MODE, exc)
         breaker.record_failure()
         _state["hardware_connected"] = False
         return False
@@ -206,7 +206,7 @@ async def _read_from_hardware(unit_id: int) -> dict | None:
     try:
         values = await asyncio.wait_for(app.state.hardware_client.read_once(), timeout=_HARDWARE_READ_TIMEOUT_S)
     except Exception as exc:  # noqa: BLE001
-        logger.error("خوانش سخت‌افزاری ناموفق: %s", exc)
+        logger.error("Hardware read failed: %s", exc)
         breaker.record_failure()
         _state["hardware_connected"] = False
         return None
@@ -249,7 +249,7 @@ async def _ingestion_loop() -> None:
 
                 batch_readings.append(reading)
             except Exception:  # noqa: BLE001
-                logger.exception("خطا در تولید رکورد واحد %s", unit_id)
+                logger.exception("Error generating the record for unit %s", unit_id)
 
         if batch_readings:
             _dispatch_batch(batch_readings)
@@ -287,7 +287,7 @@ def _dispatch_batch(readings: list[dict]) -> None:
                 try:
                     app.state.influx_writer.write_reading(reading)
                 except Exception:  # noqa: BLE001
-                    logger.debug("نوشتن Influx ناموفق بود.")
+                    logger.debug("Influx write failed.")
 
     _flush_local_buffer()
 

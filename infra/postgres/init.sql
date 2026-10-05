@@ -1,22 +1,22 @@
 -- ==========================================================================
--- Khalij POS - Schema اولیه PostgreSQL (داده‌های تراکنشی)
--- مطابق R-GEN-02، FR-ALERT-02، R-GEN-04 سند SRS
+-- Khalij POS - Initial PostgreSQL schema (transactional data)
+-- Per R-GEN-02, FR-ALERT-02, R-GEN-04 of the SRS document
 -- ==========================================================================
 
--- پایگاه داده جداگانه برای MLflow (ثبت مدل‌ها) تا از داده تراکنشی جدا باشد
+-- Separate database for MLflow (model registry) to keep it apart from transactional data
 SELECT 'CREATE DATABASE mlflow'
 WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'mlflow')
 \gexec
 
 -- ---------------------------------------------------------------------
--- اپراتورها و کاربران سیستم
+-- Operators and system users
 -- ---------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS operators (
     id              SERIAL PRIMARY KEY,
     employee_code   VARCHAR(32) UNIQUE NOT NULL,
     full_name       VARCHAR(128) NOT NULL,
     password_hash   VARCHAR(256) NOT NULL,
-    otp_secret      VARCHAR(64),                               -- Base32 secret برای TOTP (NFR-SEC-01)
+    otp_secret      VARCHAR(64),                               -- Base32 secret for TOTP (NFR-SEC-01)
     role            VARCHAR(32) NOT NULL DEFAULT 'operator', -- operator | supervisor | admin
     shift           VARCHAR(16),                              -- morning | evening | night
     two_factor_enabled BOOLEAN NOT NULL DEFAULT TRUE,          -- NFR-SEC-01
@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS operators (
 );
 
 -- ---------------------------------------------------------------------
--- تعریف واحدها و سنسورها (الفین / پلیمریزاسیون)
+-- Definition of units and sensors (olefin / polymerization)
 -- ---------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS units (
     id              SERIAL PRIMARY KEY,
@@ -47,7 +47,7 @@ CREATE TABLE IF NOT EXISTS sensors (
 );
 
 -- ---------------------------------------------------------------------
--- هشدارها (FR-ALERT-01 / FR-ALERT-02)
+-- Alerts (FR-ALERT-01 / FR-ALERT-02)
 -- ---------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS alerts (
     id                  BIGSERIAL PRIMARY KEY,
@@ -68,7 +68,7 @@ CREATE INDEX IF NOT EXISTS idx_alerts_raised_at ON alerts (raised_at DESC);
 CREATE INDEX IF NOT EXISTS idx_alerts_level ON alerts (level);
 
 -- ---------------------------------------------------------------------
--- گزارش بهینه‌سازی انرژی پایان شیفت (R-GEN-04)
+-- End-of-shift energy optimization report (R-GEN-04)
 -- ---------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS shift_reports (
     id                  BIGSERIAL PRIMARY KEY,
@@ -83,7 +83,7 @@ CREATE TABLE IF NOT EXISTS shift_reports (
 );
 
 -- ---------------------------------------------------------------------
--- توصیه‌های بهینه‌سازی صادر شده توسط ماژول Recommender (FR-ML-03)
+-- Optimization recommendations issued by the Recommender module (FR-ML-03)
 -- ---------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS optimization_recommendations (
     id                  BIGSERIAL PRIMARY KEY,
@@ -93,18 +93,18 @@ CREATE TABLE IF NOT EXISTS optimization_recommendations (
     recommended_value   DOUBLE PRECISION,
     expected_efficiency_gain DOUBLE PRECISION,
     model_run_id        VARCHAR(64), -- MLflow run id
-    recommendation_json JSONB,                         -- توصیه چندمتغیره کامل (فاز ۴)
-    expected_efficiency DOUBLE PRECISION,              -- راندمان تخمینی پس از اعمال
-    actual_efficiency   DOUBLE PRECISION,              -- راندمان واقعی اندازه‌گیری‌شده
+    recommendation_json JSONB,                         -- complete multivariable recommendation (phase 4)
+    expected_efficiency DOUBLE PRECISION,              -- estimated efficiency after application
+    actual_efficiency   DOUBLE PRECISION,              -- actual measured efficiency
     efficiency_error    DOUBLE PRECISION,              -- actual - expected
-    whatif_snapshot     JSONB,                         -- نتیجه What-if قبل از اعمال
+    whatif_snapshot     JSONB,                         -- What-if result before application
     feedback_at         TIMESTAMPTZ,
     created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
     applied              BOOLEAN NOT NULL DEFAULT FALSE,
     applied_by           INTEGER REFERENCES operators(id)
 );
 
--- رویدادهای حلقه بسته بهینه‌سازی (فاز ۴)
+-- Optimization closed-loop events (phase 4)
 CREATE TABLE IF NOT EXISTS optimization_feedback_events (
     id                  BIGSERIAL PRIMARY KEY,
     recommendation_id   BIGINT REFERENCES optimization_recommendations(id) ON DELETE CASCADE,
@@ -116,13 +116,13 @@ CREATE TABLE IF NOT EXISTS optimization_feedback_events (
 );
 
 -- ---------------------------------------------------------------------
--- اپراتور دمو برای تست ورود (NFR-SEC-01) - رمز عبور پیش‌فرض: ChangeMe123!
--- ⚠️ حتماً پس از استقرار در محیط عملیاتی این رکورد را حذف/به‌روزرسانی کنید.
+-- Demo operator for login testing (NFR-SEC-01) - default password: ChangeMe123!
+-- ⚠️ Be sure to delete/update this record after deployment in the operational environment.
 -- ---------------------------------------------------------------------
 INSERT INTO operators (employee_code, full_name, password_hash, otp_secret, role, shift)
 VALUES (
     'demo-admin',
-    'اپراتور دمو',
+    'Demo operator',
     '$2b$12$dTFM.AIRyaHlm8xioKQLnegLWMo1PT8AwDuuZHNO6SWHTD5QFUyyS',
     '3MYXLVCKBIRJUTD6',
     'admin',
@@ -130,12 +130,12 @@ VALUES (
 )
 ON CONFLICT (employee_code) DO NOTHING;
 
--- نقش‌های نمونه برای تست RBAC فاز ۶ (همان رمز ChangeMe123!)
+-- Sample roles for phase 6 RBAC testing (same password ChangeMe123!)
 INSERT INTO operators (employee_code, full_name, password_hash, otp_secret, role, shift)
 VALUES
     (
         'demo-operator',
-        'اپراتور خط',
+        'Line operator',
         '$2b$12$dTFM.AIRyaHlm8xioKQLnegLWMo1PT8AwDuuZHNO6SWHTD5QFUyyS',
         '3MYXLVCKBIRJUTD6',
         'operator',
@@ -143,7 +143,7 @@ VALUES
     ),
     (
         'demo-supervisor',
-        'سرپرست شیفت',
+        'Shift supervisor',
         '$2b$12$dTFM.AIRyaHlm8xioKQLnegLWMo1PT8AwDuuZHNO6SWHTD5QFUyyS',
         '3MYXLVCKBIRJUTD6',
         'supervisor',
@@ -152,7 +152,7 @@ VALUES
 ON CONFLICT (employee_code) DO NOTHING;
 
 -- ---------------------------------------------------------------------
--- Audit Trail امنیتی (فاز ۶)
+-- Security Audit Trail (phase 6)
 -- ---------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS audit_events (
     id              BIGSERIAL PRIMARY KEY,
@@ -172,10 +172,10 @@ CREATE INDEX IF NOT EXISTS idx_audit_actor ON audit_events (actor_code);
 CREATE INDEX IF NOT EXISTS idx_audit_type ON audit_events (event_type);
 
 -- ---------------------------------------------------------------------
--- داده اولیه نمونه (واحد و سنسورهای پیش‌فرض بر اساس FR-DATA-02)
+-- Initial sample data (default unit and sensors per FR-DATA-02)
 -- ---------------------------------------------------------------------
 INSERT INTO units (name, unit_type, description)
-VALUES ('Olefin Unit 1', 'olefin', 'واحد الفین شماره ۱ - راکتور اصلی')
+VALUES ('Olefin Unit 1', 'olefin', 'Olefin Unit 1 - main reactor')
 ON CONFLICT DO NOTHING;
 
 INSERT INTO sensors (unit_id, tag, variable_name, unit_of_measure, protocol, min_value, max_value, nominal_value)

@@ -1,7 +1,7 @@
-"""کلاینت OPC-UA برای دریافت داده از سنسورهای DCS (FR-DATA-01).
+"""OPC-UA client for receiving data from DCS sensors (FR-DATA-01).
 
-در محیط توسعه، در صورت عدم دسترسی به سرور OPC-UA واقعی، از شبیه‌ساز
-(app.simulator) به‌عنوان جایگزین استفاده می‌شود.
+In the development environment, if a real OPC-UA server is not accessible, the simulator
+(app.simulator) is used as a substitute.
 """
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 
 class OpcUaClient:
-    """اتصال به سرور OPC-UA و خوانش دوره‌ای نودهای تعریف‌شده برای هر سنسور."""
+    """Connect to the OPC-UA server and periodically read the nodes defined for each sensor."""
 
     def __init__(self, endpoint_url: str, node_ids: dict[str, str], sample_rate_s: float = 1.0):
         self.endpoint_url = endpoint_url
@@ -30,19 +30,19 @@ class OpcUaClient:
         reraise=True,
     )
     async def connect(self) -> None:
-        """اتصال به سرور OPC-UA با Retry Policy نمایی (Exponential Backoff)."""
+        """Connect to the OPC-UA server with an exponential Retry Policy (Exponential Backoff)."""
         self._client = Client(url=self.endpoint_url)
         await self._client.connect()
-        logger.info("اتصال OPC-UA به %s برقرار شد.", self.endpoint_url)
+        logger.info("OPC-UA connection to %s established.", self.endpoint_url)
 
     async def disconnect(self) -> None:
         if self._client is not None:
             await self._client.disconnect()
-            logger.info("اتصال OPC-UA بسته شد.")
+            logger.info("OPC-UA connection closed.")
 
     async def read_once(self) -> dict[str, float]:
         if self._client is None:
-            raise RuntimeError("کلاینت OPC-UA متصل نشده است.")
+            raise RuntimeError("The OPC-UA client is not connected.")
         values: dict[str, float] = {}
         for tag, node_id in self.node_ids.items():
             try:
@@ -50,7 +50,7 @@ class OpcUaClient:
                 value = await node.read_value()
                 values[tag] = float(value)
             except (ua.UaError, ValueError) as exc:
-                logger.error("خوانش نود %s (%s) ناموفق بود: %s", tag, node_id, exc)
+                logger.error("Reading node %s (%s) failed: %s", tag, node_id, exc)
         return values
 
     async def stream(self) -> AsyncIterator[dict[str, float]]:

@@ -1,6 +1,6 @@
-"""سیستم توصیه‌گر تکاملی — تک‌متغیره (سازگاری عقب‌رو) و چندمتغیره با قیود ایمنی (فاز ۴).
+"""Evolutionary recommender system — single-variable (backward compatible) and multivariable with safety constraints (phase 4).
 
-فاز ۴: بهینه‌سازی هم‌زمان دبی خوراک و فشار با Hard Constraints.
+Phase 4: simultaneous optimization of feed flow and pressure with Hard Constraints.
 """
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ PRESSURE_OPTIMAL_CENTER = 25.0
 
 
 def estimate_efficiency(reactor_temp_c: float, pressure_bar: float, feed_flow_m3h: float) -> float:
-    """تابع سطح پاسخ تخمینی راندمان بر اساس سه متغیر فرایندی."""
+    """Estimated efficiency response surface function based on three process variables."""
     base = (reactor_temp_c - 200) / 150 * 20 + (pressure_bar - 20) / 20 * 10 + 60
     flow_penalty = ((feed_flow_m3h - FEED_FLOW_OPTIMAL_CENTER) / 200) ** 2 * 8
     pressure_penalty = ((pressure_bar - PRESSURE_OPTIMAL_CENTER) / 15) ** 2 * 3
@@ -36,7 +36,7 @@ class Individual:
 
 
 class EvolutionaryRecommender:
-    """سازگاری عقب‌رو: فقط دبی خوراک را بهینه می‌کند (FR-ML-03 اصلی)."""
+    """Backward compatibility: optimizes only the feed flow (original FR-ML-03)."""
 
     def __init__(
         self,
@@ -93,7 +93,7 @@ class EvolutionaryRecommender:
 
 
 class MultiVariableEvolutionaryOptimizer:
-    """بهینه‌سازی هم‌زمان دبی خوراک و فشار با قیود ایمنی سخت (فاز ۴)."""
+    """Simultaneous optimization of feed flow and pressure with hard safety constraints (phase 4)."""
 
     def __init__(
         self,
@@ -151,7 +151,7 @@ class MultiVariableEvolutionaryOptimizer:
             current_feed_flow=current.feed_flow_m3h,
             bounds=self.bounds,
         ):
-            return -1e9  # جریمه سنگین برای نقض قید سخت
+            return -1e9  # heavy penalty for violating a hard constraint
         return estimate_efficiency(reactor_temp_c, ind.pressure_bar, ind.feed_flow_m3h)
 
     def optimize(
@@ -213,7 +213,7 @@ class MultiVariableEvolutionaryOptimizer:
             "constraints_satisfied": len(violations) == 0,
             "constraint_violations": [{"name": v.name, "detail": v.detail} for v in violations],
             "feasible_population_ratio": round(feasible_count / max(1, self.population_size), 3),
-            # سازگاری با API تک‌متغیره قبلی
+            # compatibility with the previous single-variable API
             "variable_name": "feed_flow_m3h,pressure_bar",
             "current_value": round(current_feed_flow, 2),
             "recommended_value": round(best.feed_flow_m3h, 2),

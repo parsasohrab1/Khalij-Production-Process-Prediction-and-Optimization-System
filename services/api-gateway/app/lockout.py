@@ -1,4 +1,4 @@
-"""قفل موقت حساب پس از تلاش‌های ناموفق ورود (فاز ۶ / NFR-SEC-01)."""
+"""Temporary account lockout after failed login attempts (phase 6 / NFR-SEC-01)."""
 from __future__ import annotations
 
 import logging

@@ -1,10 +1,10 @@
-"""سرور تست Modbus TCP شبیه‌ساز PLC واحد الفین (فاز ۱).
+"""Modbus TCP test server simulating the olefin unit PLC (phase 1).
 
-رجیسترهای هولدینگ ۰ تا ۵ مطابق config/tag_mapping.yaml پر می‌شوند.
-مقادیر صحیح (۱۶ بیتی) با ضریب مقیاس تعریف‌شده در YAML به مقادیر واقعی
-تبدیل می‌شوند (مثلاً دما: 2501 → 250.1 با scale=0.1).
+Holding registers 0 to 5 are filled per config/tag_mapping.yaml.
+Integer values (16-bit) are converted to real values with the scale factor
+defined in the YAML (e.g., temperature: 2501 → 250.1 with scale=0.1).
 
-اجرا:
+Run:
     python -m hardware_sim.modbus_server
 """
 from __future__ import annotations
@@ -22,8 +22,8 @@ logger = logging.getLogger("modbus-sim")
 HOST = "0.0.0.0"
 PORT = 5020
 
-# ترتیب رجیسترها مطابق tag_mapping.yaml (registers: 0..5)
-# مقادیر ذخیره‌شده = مقدار واقعی / scale
+# register order per tag_mapping.yaml (registers: 0..5)
+# stored values = real value / scale
 REGISTER_ORDER = [
     ("reactor_temp_c", 0.1),
     ("reactor_pressure_bar", 0.1),
@@ -51,13 +51,13 @@ def _compute_raw_registers(elapsed: float) -> list[int]:
 
 
 class UpdatingDataBlock(ModbusSequentialDataBlock):
-    """DataBlock که هر بار خوانش، مقادیر را با الگوی سینوسی به‌روز می‌کند."""
+    """DataBlock that updates values with a sinusoidal pattern on every read."""
 
     def __init__(self):
         super().__init__(0, [0] * 10)
         self._t0 = time.monotonic()
 
-    def getValues(self, address, count=1):  # noqa: N802 - امضای pymodbus
+    def getValues(self, address, count=1):  # noqa: N802 - pymodbus signature
         self.setValues(0, _compute_raw_registers(time.monotonic() - self._t0))
         return super().getValues(address, count)
 
@@ -65,7 +65,7 @@ class UpdatingDataBlock(ModbusSequentialDataBlock):
 def main() -> None:
     store = ModbusSlaveContext(hr=UpdatingDataBlock(), zero_mode=True)
     context = ModbusServerContext(slaves=store, single=True)
-    logger.info("سرور Modbus TCP روی %s:%s آماده است.", HOST, PORT)
+    logger.info("Modbus TCP server is ready on %s:%s.", HOST, PORT)
     StartTcpServer(context=context, address=(HOST, PORT))
 
 

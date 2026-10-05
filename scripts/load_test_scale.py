@@ -1,8 +1,8 @@
-"""شبیه‌سازی بار برای مقیاس ۵۰k سنسور (فاز ۷ / NFR-SCL-01).
+"""Load simulation for the 50k-sensor scale (phase 7 / NFR-SCL-01).
 
-بدون نیاز به Docker کامل: تولید دسته‌ای رکورد خام و سنجش throughput تولیدکننده.
+Without needing the full Docker: batch generation of raw records and measurement of generator throughput.
 
-اجرا:
+Run:
     python scripts/load_test_scale.py --units 1000 --seconds 5
 """
 from __future__ import annotations
@@ -38,10 +38,10 @@ def synthesize(unit_id: int) -> dict:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Load test generator for Khalij POS scale phase")
-    parser.add_argument("--units", type=int, default=1000, help="تعداد واحد/سنسور مجازی")
-    parser.add_argument("--seconds", type=float, default=3.0, help="مدت تولید")
+    parser.add_argument("--units", type=int, default=1000, help="number of virtual units/sensors")
+    parser.add_argument("--seconds", type=float, default=3.0, help="generation duration")
     parser.add_argument("--batch-size", type=int, default=500)
-    parser.add_argument("--kafka", action="store_true", help="ارسال واقعی به Kafka (در غیر این صورت dry-run)")
+    parser.add_argument("--kafka", action="store_true", help="actually send to Kafka (otherwise dry-run)")
     parser.add_argument("--bootstrap", default="localhost:29092")
     parser.add_argument("--topic", default="raw-sensor-data")
     args = parser.parse_args()
@@ -78,7 +78,7 @@ def main() -> None:
 
     rps = produced / elapsed if elapsed else 0
     print(f"[OK] produced={produced} elapsed={elapsed:.2f}s rate={rps:.0f} msg/s units={args.units} kafka={args.kafka}")
-    # هدف تقریبی برای مسیر ۵۰k سنسور @1Hz = 50k msg/s در کل خوشه؛ این تست تک‌process است
+    # approximate target for the 50k-sensor path @1Hz = 50k msg/s across the cluster; this test is single-process
     target_hint = 50000
     print(f"hint: 50k sensors @1Hz needs ~{target_hint} msg/s cluster-wide; this process achieved {rps:.0f} msg/s")
 

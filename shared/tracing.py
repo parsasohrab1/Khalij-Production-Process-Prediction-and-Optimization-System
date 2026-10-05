@@ -1,6 +1,6 @@
-"""ردیابی توزیع‌شده با OpenTelemetry (فاز ۸).
+"""Distributed tracing with OpenTelemetry (phase 8).
 
-اگر OTEL_EXPORTER_OTLP_ENDPOINT تنظیم نشده باشد، tracing غیرفعال می‌ماند.
+If OTEL_EXPORTER_OTLP_ENDPOINT is not set, tracing stays disabled.
 """
 from __future__ import annotations
 
@@ -11,10 +11,10 @@ logger = logging.getLogger(__name__)
 
 
 def setup_tracing(service_name: str, app=None) -> bool:
-    """راه‌اندازی OTLP tracing. True اگر فعال شد."""
+    """Set up OTLP tracing. True if enabled."""
     endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "").strip()
     if not endpoint:
-        logger.info("OTEL_EXPORTER_OTLP_ENDPOINT خالی است؛ tracing غیرفعال.")
+        logger.info("OTEL_EXPORTER_OTLP_ENDPOINT is empty; tracing disabled.")
         return False
     try:
         from opentelemetry import trace
@@ -23,7 +23,7 @@ def setup_tracing(service_name: str, app=None) -> bool:
         from opentelemetry.sdk.trace import TracerProvider
         from opentelemetry.sdk.trace.export import BatchSpanProcessor
     except ImportError:
-        logger.warning("بسته‌های OpenTelemetry نصب نیستند؛ tracing غیرفعال.")
+        logger.warning("OpenTelemetry packages are not installed; tracing disabled.")
         return False
 
     resource = Resource.create(
@@ -34,7 +34,7 @@ def setup_tracing(service_name: str, app=None) -> bool:
         }
     )
     provider = TracerProvider(resource=resource)
-    # endpoint مثل http://tempo:4318  → مسیر /v1/traces
+    # endpoint like http://tempo:4318  → path /v1/traces
     traces_url = endpoint.rstrip("/")
     if not traces_url.endswith("/v1/traces"):
         traces_url = f"{traces_url}/v1/traces"
@@ -48,7 +48,7 @@ def setup_tracing(service_name: str, app=None) -> bool:
 
             FastAPIInstrumentor.instrument_app(app)
         except Exception as exc:  # noqa: BLE001
-            logger.warning("FastAPI instrumentation ناموفق: %s", exc)
+            logger.warning("FastAPI instrumentation failed: %s", exc)
 
-    logger.info("OpenTelemetry tracing فعال شد → %s", traces_url)
+    logger.info("OpenTelemetry tracing enabled → %s", traces_url)
     return True

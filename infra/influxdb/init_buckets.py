@@ -1,10 +1,10 @@
-"""راه‌اندازی bucketهای InfluxDB و Taskهای Downsampling (فاز ۲ / R-GEN-02).
+"""InfluxDB bucket setup and Downsampling Tasks (phase 2 / R-GEN-02).
 
-استراتژی نگهداری داده:
-  - process_sensors (hot): داده خام ثانیه‌ای، نگهداری ۳۰ روز
-  - process_sensors_1m (cold): میانگین ۱ دقیقه‌ای، نگهداری ۵ سال (1825 روز)
+Data retention strategy:
+  - process_sensors (hot): raw per-second data, retained 30 days
+  - process_sensors_1m (cold): 1-minute average, retained 5 years (1825 days)
 
-این اسکریپت پس از healthy شدن InfluxDB اجرا می‌شود (سرویس influxdb-init در compose).
+This script runs after InfluxDB becomes healthy (influxdb-init service in compose).
 """
 from __future__ import annotations
 
@@ -56,24 +56,24 @@ def wait_for_influx(client: InfluxDBClient, retries: int = 30) -> None:
     for i in range(retries):
         try:
             if client.ping():
-                logger.info("InfluxDB آماده است.")
+                logger.info("InfluxDB is ready.")
                 return
         except Exception:  # noqa: BLE001
             pass
-        logger.info("در انتظار InfluxDB... (%s/%s)", i + 1, retries)
+        logger.info("Waiting for InfluxDB... (%s/%s)", i + 1, retries)
         time.sleep(2)
-    raise RuntimeError("InfluxDB در زمان مقرر آماده نشد.")
+    raise RuntimeError("InfluxDB did not become ready in time.")
 
 
 def ensure_bucket(buckets_api, org_id: str, name: str, retention: str) -> None:
     existing = buckets_api.find_bucket_by_name(name)
     every_seconds = _parse_duration_seconds(retention)
     if existing:
-        logger.info("Bucket '%s' از قبل وجود دارد.", name)
+        logger.info("Bucket '%s' already exists.", name)
         return
     rules = [BucketRetentionRules(type="expire", every_seconds=every_seconds)]
     buckets_api.create_bucket(bucket_name=name, org_id=org_id, retention_rules=rules)
-    logger.info("Bucket '%s' با retention=%s ساخته شد.", name, retention)
+    logger.info("Bucket '%s' created with retention=%s.", name, retention)
 
 
 def ensure_downsample_task(tasks_api, org_id: str) -> None:
@@ -81,44 +81,44 @@ def ensure_downsample_task(tasks_api, org_id: str) -> None:
     try:
         tasks = tasks_api.find_tasks(name="downsample_raw_to_1m")
         if tasks:
-            logger.info("Task downsampling از قبل وجود دارد.")
+            logger.info("Downsampling task already exists.")
             return
     except ApiException:
         pass
     task = Task(name="downsample_raw_to_1m", org_id=org_id, flux=flux, status="active")
     tasks_api.create_task(task)
-    logger.info("Task downsampling (هر ۱ دقیقه) ساخته شد.")
+    logger.info("Downsampling task (every 1 minute) created.")
 
 
 def main() -> int:
     if not TOKEN:
-        logger.error("INFLUXDB_TOKEN تنظیم نشده است.")
+        logger.error("INFLUXDB_TOKEN is not set.")
         return 1
     client = InfluxDBClient(url=URL, token=TOKEN, org=ORG)
     wait_for_influx(client)
 
     orgs = client.organizations_api().find_organizations(org=ORG)
     if not orgs:
-        logger.error("سازمان '%s' یافت نشد.", ORG)
+        logger.error("Organization '%s' not found.", ORG)
         return 1
     org_id = orgs[0].id
 
     buckets_api = client.buckets_api()
-    # bucket اصلی توسط DOCKER_INFLUXDB_INIT ساخته می‌شود؛ cold bucket را اینجا می‌سازیم
+    # the main bucket is created by DOCKER_INFLUXDB_INIT; we create the cold bucket here
     ensure_bucket(buckets_api, org_id, COLD_BUCKET, COLD_RETENTION)
 
-    # اگر hot bucket با retention پنج‌ساله ساخته شده، هشدار می‌دهیم (باید ۳۰ روز باشد)
+    # if the hot bucket was created with five-year retention, warn (it should be 30 days)
     hot = buckets_api.find_bucket_by_name(HOT_BUCKET)
     if hot:
         logger.info(
-            "Bucket hot '%s' موجود است — توصیه: retention=%s (داده ثانیه‌ای).",
+            "Hot bucket '%s' exists — recommendation: retention=%s (per-second data).",
             HOT_BUCKET,
             HOT_RETENTION,
         )
 
     ensure_downsample_task(client.tasks_api(), org_id)
     client.close()
-    logger.info("راه‌اندازی InfluxDB فاز ۲ کامل شد.")
+    logger.info("InfluxDB phase 2 setup complete.")
     return 0
 
 

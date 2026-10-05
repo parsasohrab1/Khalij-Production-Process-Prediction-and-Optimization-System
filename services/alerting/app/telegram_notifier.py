@@ -1,4 +1,4 @@
-"""ارسال هشدار از طریق تلگرام (FR-ALERT-01)."""
+"""Send alerts via Telegram (FR-ALERT-01)."""
 from __future__ import annotations
 
 import logging
@@ -16,7 +16,7 @@ class TelegramNotifier:
 
     def send(self, message: str) -> bool:
         if not self._enabled:
-            logger.debug("اعلان تلگرام غیرفعال است (TELEGRAM_BOT_TOKEN/CHAT_ID تنظیم نشده).")
+            logger.debug("Telegram notification is disabled (TELEGRAM_BOT_TOKEN/CHAT_ID not set).")
             return False
         url = f"https://api.telegram.org/bot{self._bot_token}/sendMessage"
         try:
@@ -24,5 +24,5 @@ class TelegramNotifier:
             response.raise_for_status()
             return True
         except httpx.HTTPError as exc:
-            logger.error("ارسال پیام تلگرام ناموفق بود: %s", exc)
+            logger.error("Sending the Telegram message failed: %s", exc)
             return False
